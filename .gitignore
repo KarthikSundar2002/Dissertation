@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+Secrets/
+output
+data
+venv
+venv/
+model(1).zip
+weights
