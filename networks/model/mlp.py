@@ -31,6 +31,7 @@ class MLP(nn.Module):
             layers.append(l_Block(hidden_size))
         layers.append(nn.Linear(hidden_size, 6))
         self.joint_mlp = nn.Sequential(*layers)
+        self.attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=8, batch_first=True)
 
     def forward(self, x, t, y):
 
@@ -45,6 +46,7 @@ class MLP(nn.Module):
         t_emb = t_emb.repeat(x1_emb.shape[0], 1, 1)
         y = y.repeat(1,x1_emb.shape[1],1 )
         x = torch.cat((x1_emb, x2_emb, x3_emb, x4_emb, x5_emb, x6_emb, t_emb, y), dim=-1)
+        x = self.attn(x, x, x)
         x = self.joint_mlp(x)
 
         return x
