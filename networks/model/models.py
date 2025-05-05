@@ -1,7 +1,7 @@
 from torch import optim
-
-from modules import *
-from positional_embeddings import PositionalEmbedding
+import pytorch_lightning as L
+from networks.model.modules import *
+from networks.model.positional_embeddings import PositionalEmbedding
 from utils import draw, l_sample, sample
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -78,6 +78,9 @@ class srm(L.LightningModule):
         Strokes = batch[1]
         noise = torch.randn(Strokes.shape, device=self.device)
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (Strokes.shape[1],),device=self.device).long()
+        # print("Strokes Shape",Strokes.shape)
+        # print("Noise Shape", noise.shape)
+        # print(f"timesteps shape {timesteps.shape}")
         noisy = self.noise_scheduler.add_noise(Strokes, noise, timesteps)
 
         #Train

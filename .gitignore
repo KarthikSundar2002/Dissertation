@@ -7,3 +7,6 @@ venv
 venv/
 model(1).zip
 weights
+.idea/
+output.zip
+wandb/
