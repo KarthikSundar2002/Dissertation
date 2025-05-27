@@ -1,20 +1,21 @@
+
 import wandb
 from Data_Set  import Tensor
-from models import srm, lsg, L_MLP
+from networks.model.models import srm, lsg, L_MLP
 import torch
 from torch.utils.data import DataLoader
 import os
-import lightning as L
+import pytorch_lightning as L
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from diffusers import DDIMScheduler, DDPMScheduler
-from lightning.pytorch.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
+from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "mps"
-experiment_name = 'First run'
+experiment_name = 'LSG-Train-run'
 format_path = 'format.svg'
-train_path = 'Latent/Final.pt'
+train_path = '/scratch/ks02450/Latent/Latent.pt'
 
 learning_rate = 1e-4
 size = 512
@@ -24,18 +25,21 @@ samples = 1000
 steps = 4000
 sample_steps = 25
 beta_schedule = 'scaled_linear'
-wand_b_key = 'Your Key Here'
+wand_b_key = '117905e69dff43b1635103618ba74a5593104105'
 gpu_num = 1
 wandb.login(key=wand_b_key)
-wandb_logger = WandbLogger(name=experiment_name,project='Your Latent Stroke Cloud')
+wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir="/scratch/kas02450/wandb")
 trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True)
 torch.set_float32_matmul_precision("medium")
-srm = srm.load_from_checkpoint("./Models/SRM.ckpt")
+srm = srm.load_from_checkpoint("/scratch/ks02450/Models/First Run/SRM.ckpt")
 checkpoint_callback = ModelCheckpoint(
-    dirpath="Models/{}/".format(experiment_name),
+    dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",
+    save_last=True,
+    every_n_epochs=100,
+    save_on_train_epoch_end=True,
 )
 
 model= L_MLP(
@@ -53,11 +57,11 @@ sample_steps = list(range(25))
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
 lsg = lsg(model, srm, experiment_name, sample_steps, scheduler, ddim_s, learning_rate)
 
-if not os.path.exists("Results/{}".format(experiment_name)):
-        os.makedirs("Results/{}".format(experiment_name))
+if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):
+        os.makedirs("/scratch/ks02450/Results/{}".format(experiment_name))
 
-if not os.path.exists("Models/{}".format(experiment_name)):
-        os.makedirs("Models/{}".format(experiment_name))
+if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
+        os.makedirs("/scratch/ks02450/Models/{}".format(experiment_name))
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs= 5000000,
                     check_val_every_n_epoch=200, enable_progress_bar=True, profiler="simple",
