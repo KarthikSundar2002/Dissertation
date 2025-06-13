@@ -19,12 +19,12 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
 
         self.time_mlp = PositionalEmbedding(emb_size, time_emb)
-        self.input_mlp1 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp2 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp3 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp4 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp5 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
-        self.input_mlp6 = PositionalEmbedding(emb_size, input_emb, scale=25.0)
+        self.input_mlp1 = PositionalEmbedding(emb_size, input_emb)
+        self.input_mlp2 = PositionalEmbedding(emb_size, input_emb)
+        self.input_mlp3 = PositionalEmbedding(emb_size, input_emb)
+        self.input_mlp4 = PositionalEmbedding(emb_size, input_emb)
+        self.input_mlp5 = PositionalEmbedding(emb_size, input_emb)
+        self.input_mlp6 = PositionalEmbedding(emb_size, input_emb)
         concat_size = (7 * emb_size) + 256
         layers = [nn.Linear(concat_size, hidden_size), nn.GELU()]
         for _ in range(hidden_layers):
@@ -46,7 +46,7 @@ class MLP(nn.Module):
         t_emb = t_emb.repeat(x1_emb.shape[0], 1, 1)
         y = y.repeat(1,x1_emb.shape[1],1 )
         x = torch.cat((x1_emb, x2_emb, x3_emb, x4_emb, x5_emb, x6_emb, t_emb, y), dim=-1)
-        x = self.attn(x, x, x)
+        x = self.attn(x, x, x)[0]
         x = self.joint_mlp(x)
 
         return x

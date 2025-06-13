@@ -209,6 +209,34 @@ class L_MLP_F(nn.Module):
         x = self.joint_mlp(x)
 
         return x
+
+class L_MLP_F_Attn(nn.Module):
+    def __init__(self, hidden_size: int = 1024, hidden_layers: int =6, emb_size: int =64,
+                 time_emb: str = "sinusoidal", input_emb: str = "sinusoidal",):
+        super().__init__()
+
+        self.time_mlp = PositionalEmbedding(emb_size, time_emb)
+
+        concat_size = emb_size + 256
+
+        layers = [nn.Linear(concat_size, hidden_size),nn.LayerNorm(hidden_size), nn.GELU()]
+
+        for _ in range(hidden_layers):
+            layers.append(l_Block(hidden_size))
+        layers.append(nn.Linear(hidden_size, 256))
+        self.joint_mlp = nn.Sequential(*layers)
+        self.attn = nn.MultiheadAttention(embed_dim=hidden_size, num_heads=8, batch_first=True)
+
+
+    def forward(self, x, t):
+
+        t_emb = self.time_mlp(t)
+        t_emb = t_emb.repeat(x.shape[0], x.shape[1], 1)
+        x = torch.cat((x, t_emb), dim=-1)
+        x = self.attn(x, x, x)[0]
+        x = self.joint_mlp(x)
+
+        return x
 class SetTransformer(L.LightningModule):
     def __init__(self, dim_input, num_outputs, dim_output,
             num_inds, dim_hidden, num_heads, ln):
