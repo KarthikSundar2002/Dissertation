@@ -1,5 +1,5 @@
 from networks.model.models import srm
-from networks.model.lsg import lsg
+from networks.model.lsg import LSG as lsg
 from networks.model.mlp import MLP as L_MLP
 import torch
 from torch.utils.data import DataLoader
@@ -20,7 +20,7 @@ train_path = '/scratch/ks02450/Latent/SRM Test.pt'
 
 learning_rate = 1e-4
 size = 512
-BATCH_SIZE = 2048
+BATCH_SIZE = 128
 hidden_size = 2048
 samples = 1000
 steps = 4000
@@ -34,7 +34,7 @@ trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True)
 torch.set_float32_matmul_precision("medium")
-srm = srm.load_from_checkpoint("~/SRE9149.ckpt")
+srm = srm.load_from_checkpoint("~/SRM17149.ckpt")
 checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",

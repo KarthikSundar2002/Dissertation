@@ -1,4 +1,4 @@
-import lightning as L
+import pytorch_lightning as L
 import torch
 import torch.nn.functional as F
 from torch import optim
@@ -45,7 +45,7 @@ class LSG(L.LightningModule):
         )
         
         # Save the generated drawing
-        filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
+        filename = f'/scratch/ks02450/Results/{self.experiment_name}/{self.current_epoch}.svg'
         draw(self.srm.format, self.srm.sample_size, filename, stroke)
 
     def configure_optimizers(self):

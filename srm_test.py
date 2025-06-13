@@ -10,7 +10,7 @@ experiment_name = 'SRM Test'
 torch.set_float32_matmul_precision('medium')
 test_path = "./10k.pt"
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = srm.load_from_checkpoint("~/SRE9149.ckpt")
+model = srm.load_from_checkpoint("~/SRM17149.ckpt")
 size = 512
 dim_in = 6
 samples = 1000
