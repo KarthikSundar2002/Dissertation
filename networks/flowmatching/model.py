@@ -1,8 +1,8 @@
-import lightning as L
+import pytorch_lightning as L
 import torch
 import torch.nn.functional as F
 from torch import optim
-
+import os
 from utils import l_sample, sample, draw
 
 from flow_matching.path import AffineProbPath
@@ -10,7 +10,7 @@ from flow_matching.path.scheduler import CondOTScheduler
 from flow_matching.solver import Solver, ODESolver
 from flow_matching.utils import ModelWrapper
 
-class LSG(L.LightningModule):
+class lsg(L.LightningModule):
     def __init__(self, model, srm, experiment_name, timesteps, learning_rate):
         super().__init__()
         self.model = model
@@ -24,17 +24,21 @@ class LSG(L.LightningModule):
     def training_step(self, batch, batch_idx):
         # Get the data
         x = batch
-        t = torch.rand(x.shape[0], device=self.device)
+        x = x.transpose(0,1).contiguous()
+        t = torch.rand((x.shape[0],), device=self.device)
         noise = torch.randn_like(x, device=self.device)
         # Get the flow field
-        path_sample = self.prob_path.sample(t=t, x_0=noise, x_t=x)
+        path_sample = self.prob_path.sample(t=t, x_0=noise, x_1=x)
         x_t = path_sample.x_t
         u_t = path_sample.dx_t
+        print(x_t.shape)
+        
+        print(x.shape)
         
         flow_field = self.model(x_t, t)
         
         # Compute the loss using the flow matching objective
-        loss = F.mse_loss(flow_field, self.prob_path.vector_field(x, t))
+        loss = F.mse_loss(flow_field, u_t)
         
         # Log metrics
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
@@ -42,8 +46,13 @@ class LSG(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Generate a latent vector using flow matching
-        solver = ODESolver(self.model, self.prob_path)
-        Latent = solver.sample(self.timesteps)
+        solver = ODESolver(self.model)
+        x_0 = torch.randn(batch.shape, device=self.device)
+        time_grid = torch.tensor([0.0,1.0],device=self.device)
+        Latent = solver.sample(x_init=x_0,
+                               time_grid=time_grid,
+                               method="euler",
+                               step_size=20)
         
         # Decode the latent vector into strokes
         stroke = sample(
@@ -56,8 +65,10 @@ class LSG(L.LightningModule):
         )
         
         # Save the generated drawing
-        filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
-        draw(self.srm.format, self.srm.sample_size, filename, stroke)
+        filename = f'/scratch/ks02450/Results/{self.experiment_name}/'
+        if not os.path.exists(filename):
+            os.makedirs(filename)
+        draw(self.srm.format, self.srm.sample_size, filename+"last.svg", stroke)
 
     def configure_optimizers(self):
         optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)

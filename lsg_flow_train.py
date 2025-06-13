@@ -3,10 +3,10 @@ import time
 import wandb
 import os
 
-from networks.model.models import srm, L_MLP
+from networks.model.models import srm, L_MLP_F
 from Data_Set import Tensor
 from torch.utils.data import DataLoader
-from networks.flowmatching.model import LSG
+from networks.flowmatching.model import lsg
 
 import pytorch_lightning as L
 from pytorch_lightning.loggers import WandbLogger
@@ -35,7 +35,7 @@ trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True)
 torch.set_float32_matmul_precision("medium")
-srm = srm.load_from_checkpoint("/scratch/ks02450/Models/First Run/SRM.ckpt")
+srm = srm.load_from_checkpoint("/user/HS400/ks02450/SRE9149.ckpt")
 checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",
@@ -44,7 +44,7 @@ checkpoint_callback = ModelCheckpoint(
     save_on_train_epoch_end=True,
 )
 
-model= L_MLP(
+model= L_MLP_F(
         hidden_size=hidden_size,
         hidden_layers=6,
         emb_size=64,
@@ -53,7 +53,7 @@ model= L_MLP(
 
 sample_steps = list(range(25))
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
-lsg = LSG(model, srm, experiment_name, sample_steps,learning_rate)
+lsg1 = lsg(model, srm, experiment_name, sample_steps,learning_rate)
 
 if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):
         os.makedirs("/scratch/ks02450/Results/{}".format(experiment_name))
@@ -64,5 +64,5 @@ if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs= 5000000,
                     check_val_every_n_epoch=200, enable_progress_bar=True, profiler="simple",
                     callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback, lr_monitor], benchmark=True)
-trainer.fit(model=lsg, train_dataloaders=train_loader, val_dataloaders=train_loader)
+trainer.fit(model=lsg1, train_dataloaders=train_loader, val_dataloaders=train_loader)
 

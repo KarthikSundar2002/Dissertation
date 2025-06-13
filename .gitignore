@@ -10,3 +10,5 @@ weights
 .idea/
 output.zip
 wandb/
+.venv/
+Models/

@@ -15,7 +15,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "mps"
 experiment_name = 'LSG-Train-run'
 format_path = 'format.svg'
-train_path = '/scratch/ks02450/Latent/Latent.pt'
+train_path = '/scratch/ks02450/Latent/SRM Test.pt'
 
 learning_rate = 1e-4
 size = 512
@@ -33,7 +33,7 @@ trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True)
 torch.set_float32_matmul_precision("medium")
-srm = srm.load_from_checkpoint("/scratch/ks02450/Models/First Run/SRM.ckpt")
+srm = srm.load_from_checkpoint("~/SRE9149.ckpt")
 checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",

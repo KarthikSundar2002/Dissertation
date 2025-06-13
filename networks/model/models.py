@@ -98,7 +98,7 @@ class srm(L.LightningModule):
 
         condition, mu, sigma = self.encoder(batch[0])
         for i in range(len(condition)):
-            filename = 'Results/{}/{}_{}.svg'.format(self.experiment_name, self.current_epoch, i)
+            filename = '/scratch/ks02450/Results/{}/{}_{}.svg'.format(self.experiment_name, self.current_epoch, i)
             stroke = sample(self.samples, self.sample_steps, self.decoder, self.noise_scheduler_sample, mu[i], self.dim_in)
             draw(self.format, self.sample_size, filename, stroke)
 
@@ -106,7 +106,7 @@ class srm(L.LightningModule):
 
         condition, mu, sigma = self.encoder(batch[0])
         print(mu)
-        filename = 'Samples/{}/{}.svg'.format(self.experiment_name, batch_idx)
+        filename = '/scratch/ks02450/Samples/{}/{}.svg'.format(self.experiment_name, batch_idx)
         stroke = sample(self.samples, self.sample_steps, self.decoder, self.noise_scheduler_sample, mu, self.dim_in)
         draw(self.format, self.sample_size, filename, stroke)
 
@@ -148,7 +148,7 @@ class lsg(L.LightningModule):
 
         Latent = l_sample(self.timesteps, self.model, self.noise_scheduler_sample)
         stroke = sample(self.srm.samples, self.srm.sample_steps, self.srm.decoder, self.srm.noise_scheduler_sample, Latent, self.srm.dim_in)
-        filename = 'Results/{}/{}.svg'.format(self.experiment_name, self.current_epoch)
+        filename = '/scratch/ks02450/Results/{}/last.svg'.format(self.experiment_name)
         draw(self.srm.format, self.srm.sample_size, filename, stroke)
 
 
@@ -184,7 +184,31 @@ class L_MLP(nn.Module):
         x = self.joint_mlp(x)
 
         return x
+class L_MLP_F(nn.Module):
+    def __init__(self, hidden_size: int = 1024, hidden_layers: int =6, emb_size: int =64,
+                 time_emb: str = "sinusoidal", input_emb: str = "sinusoidal",):
+        super().__init__()
 
+        self.time_mlp = PositionalEmbedding(emb_size, time_emb)
+
+        concat_size = emb_size + 256
+
+        layers = [nn.Linear(concat_size, hidden_size),nn.LayerNorm(hidden_size), nn.GELU()]
+
+        for _ in range(hidden_layers):
+            layers.append(l_Block(hidden_size))
+        layers.append(nn.Linear(hidden_size, 256))
+        self.joint_mlp = nn.Sequential(*layers)
+
+
+    def forward(self, x, t):
+
+        t_emb = self.time_mlp(t)
+        t_emb = t_emb.repeat(x.shape[0], x.shape[1], 1)
+        x = torch.cat((x, t_emb), dim=-1)
+        x = self.joint_mlp(x)
+
+        return x
 class SetTransformer(L.LightningModule):
     def __init__(self, dim_input, num_outputs, dim_output,
             num_inds, dim_hidden, num_heads, ln):
