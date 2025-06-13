@@ -5,20 +5,26 @@ import os
 import torch
 from utils import sample, draw
 
+from options.args import argument_parser
 
-experiment_name = 'SRM Test'
+args = argument_parser()
+
+
+experiment_name = args.experiment_name
+if not experiment_name:
+    experiment_name = 'SRM-Test-run'
 torch.set_float32_matmul_precision('medium')
-test_path = "./10k.pt"
+test_path = os.path.join(args.root_dir,"10k.pt")
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = srm.load_from_checkpoint("~/SRM17149.ckpt")
+model = srm.load_from_checkpoint(os.path.join(args.root_dir, "/Models/SRM17149.ckpt"))
 size = 512
 dim_in = 6
 samples = 1000
 L = []
 #To help train the lsg we create our latent data by sampling the data set multiple times.
 reps = 1
-if not os.path.exists("/scratch/ks02450/Samples/{}".format(experiment_name)):
-        os.makedirs("/scratch/ks02450/Samples/{}".format(experiment_name))
+if not os.path.exists(os.path.join(args.root_dir,"Samples/{}".format(experiment_name))):
+        os.makedirs(os.path.join(args.root_dir,"Samples/{}".format(experiment_name)))
 
 test_set = Tensor(test_path)
 loader = DataLoader(test_set, 1, shuffle=False, collate_fn= my_collate, pin_memory=True)
@@ -31,9 +37,10 @@ for i in range(reps):
             Latent = Encoder(data[0].to(device))[0]
             L.append(Latent)
             stroke = sample(samples, model.sample_steps, Decoder, model.noise_scheduler_sample, Latent, dim_in)
-            filename = '/scratch/ks02450/Samples/{}/{}.svg'.format(experiment_name, i)
+            filename = os.path.join(args.root_dir,'Samples/{}/{}.svg'.format(experiment_name, i))
             draw(model.format, size, filename, stroke)
 
 
 Latents = [item for sublist in L for item in sublist]
-torch.save(Latents, '/scratch/ks02450/Latent/{}.pt'.format(experiment_name))
+os.makedirs(os.path.join(args.root_dir, "Latent"), exist_ok=True)
+torch.save(Latents, os.path.join('Latent/{}.pt'.format(experiment_name)))

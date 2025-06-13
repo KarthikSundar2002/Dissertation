@@ -7,5 +7,6 @@ if __name__ == "__main__":
 
     if not args.use_avai_gpus:
         os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu_devices
+        
 
     
