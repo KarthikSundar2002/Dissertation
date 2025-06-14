@@ -15,15 +15,24 @@ class LSG(L.LightningModule):
         self.noise_scheduler = noise_scheduler
         self.noise_scheduler_sample = noise_scheduler_sample
         self.learning_rate = learning_rate
-        self.save_hyperparameters()
+        #self.save_hyperparameters(ignore=["model", "srm"])
 
     def training_step(self, batch, batch_idx):
         # Encoder
-        latent = batch
+        latent = batch #[128, 1, 256]
         noise = torch.randn(latent.shape, device=self.device)
+        latent =  latent.reshape(latent.shape[1],latent.shape[0],latent.shape[2])
+        noise = noise.reshape(noise.shape[1],noise.shape[0],noise.shape[2])
+        # print(f"latent shape {latent.shape}")
+        # print(f"noise shape {noise.shape}")
+        # print(f"noise shape {noise.shape}")
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (latent.shape[0],), device=self.device).long()
-        noisy = self.noise_scheduler.add_noise(latent, noise, timesteps)
+        # print(f"timesteps shape {timesteps.shape}")
+        noisy = self.noise_scheduler.add_noise(latent, noise, timesteps) #{128,128,256}
+        # print(f"noisy shape {noisy.shape}")
+        noisy = noisy.reshape(noisy.shape[1],noisy.shape[0],noisy.shape[2])
         noise_pred = self.model(noisy, timesteps)
+        noise = noise.reshape(noise.shape[1],noise.shape[0],noise.shape[2])
         loss = F.mse_loss(noise_pred, noise)
         
         # Log metrics
@@ -45,7 +54,7 @@ class LSG(L.LightningModule):
         )
         
         # Save the generated drawing
-        filename = f'/scratch/ks02450/Results/{self.experiment_name}/{self.current_epoch}.svg'
+        filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
         draw(self.srm.format, self.srm.sample_size, filename, stroke)
 
     def configure_optimizers(self):

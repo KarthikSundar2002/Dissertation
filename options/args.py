@@ -22,7 +22,7 @@ def argument_parser():
 
 
     parser.add_argument(
-        "--root-dir",
+        "--rootdir",
         type=str,
         default="/scratch/ks02450",
         help="root directory for saving results and models",

@@ -35,10 +35,10 @@ class lsg(L.LightningModule):
         
         print(x.shape)
         
-        flow_field = self.model(x_t, t)
+        velocity_field = self.model(x_t, t)
         
         # Compute the loss using the flow matching objective
-        loss = F.mse_loss(flow_field, u_t)
+        loss = F.mse_loss(velocity_field, u_t)
         
         # Log metrics
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
