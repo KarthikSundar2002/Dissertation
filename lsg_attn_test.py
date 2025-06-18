@@ -1,4 +1,6 @@
-from networks.model.models import  srm, lsg
+from networks.model.models import srm
+from networks.model.lsg import LSG as lsg
+from networks.model.mlp import MLP as L_MLP
 import os
 import torch
 from utils import sample, draw, l_sample
@@ -6,8 +8,8 @@ from utils import sample, draw, l_sample
 
 torch.set_float32_matmul_precision('medium')
 experiment_name = 'Your name here'
-SRM  = srm.load_from_checkpoint("Models/First Run/SRM.ckpt") 
-LSG  = lsg.load_from_checkpoint("Models/LSG-Train-run/epoch=322299-global_step=0.ckpt")    
+SRM  = srm.load_from_checkpoint("/users/karthiksundarsenthilkumar/SRM17149.ckpt", map_location='cpu') 
+LSG  = lsg.load_from_checkpoint("/users/karthiksundarsenthilkumar/epoch=999999-global_step=0.ckpt", map_location='cpu')    
 dim_in = 6
 samples = 1000
 size = 512

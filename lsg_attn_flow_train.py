@@ -13,9 +13,12 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
 
+from options.args import argument_parser
+args = argument_parser()
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "mps"
-experiment_name = 'Flow Based LSG-Train-run with Attention'
+experiment_name = args.experiment_name if args.experiment_name else 'Flow Based LSG-Train-run'
 format_path = 'format.svg'
 train_path = 'Latent/Latent.pt'
 

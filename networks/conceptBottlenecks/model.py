@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import pytorch_lightning as L
 
@@ -99,3 +100,32 @@ class CC(nn.Module):
     
 
 class CB(L.LightningModule()):
+    def __init__(self, latent_shape, hidden_dim, concept_dim, srm, lsg):
+        super().__init__()
+        self.save_hyperparameters()
+        self.latent_shape = latent_shape
+        self.hidden_dim = hidden_dim
+        self.concept_dim = concept_dim
+        self.srm = srm
+        self.lsg = lsg
+        
+        self.model = CB_AE(latent_shape, hidden_dim, concept_dim)
+        self.cc = CC(latent_shape, hidden_dim, concept_dim)
+        self.apply(_weights_init)
+    
+    def training_step(self, batch, batch_idx):
+        x = batch
+        x = x.reshape(x.shape[0], self.latent_shape[0], self.latent_shape[1], self.latent_shape[2])
+        concept = self.model.enc(x)
+        rec_x = self.model.dec(concept)
+        loss = nn.functional.mse_loss(rec_x, x)
+        self.log('train_loss', loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        return loss
+    
+    def validation_step(self, batch, batch_idx):
+        pass 
+
+    def configure_optimizers(self):
+        optimizer = torch.optim.Adam(self.parameters(), lr=1e-4)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=1000, gamma=0.1)
+        return [optimizer], [scheduler]
