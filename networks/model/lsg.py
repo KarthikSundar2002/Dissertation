@@ -19,7 +19,7 @@ class LSG(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # Encoder
-        latent = batch #[128, 1, 256]
+        latent = batch 
         noise = torch.randn(latent.shape, device=self.device)
         latent =  latent.reshape(latent.shape[1],latent.shape[0],latent.shape[2])
         noise = noise.reshape(noise.shape[1],noise.shape[0],noise.shape[2])

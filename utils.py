@@ -68,9 +68,9 @@ def sample(samples, steps, model, noise_scheduler, condition, dim_in):
 
     return stroke
 
-def l_sample(timesteps, model, noise_scheduler):
+def l_sample(timesteps, model, noise_scheduler, encoded_dim, number_of_strokes):
     model.eval()
-    latent = torch.randn(1, 1, 256).to(device)
+    latent = torch.randn(1, number_of_strokes, encoded_dim).to(device)
     for i, t in enumerate(timesteps):
         t = torch.full((1,), t, dtype=torch.long).to(device)
         with torch.no_grad():
@@ -78,3 +78,14 @@ def l_sample(timesteps, model, noise_scheduler):
             latent = noise_scheduler.step(residual, t[0], latent)[0]
             #latent =torch.unsqueeze(latent, 0)
     return latent
+
+def input_sample(model, set_transformer_encoder, noise_scheduler, dim_per_stroke, number_of_strokes, timesteps):
+    inp = torch.randn(1, number_of_strokes, dim_per_stroke).to(device)
+    for i, t in enumerate(timesteps):
+        t = torch.full((1,), t, dtype=torch.long).to(device)
+        with torch.no_grad():
+           inp_enc = set_transformer_encoder(inp)
+           inp_combined = torch.cat((inp_enc, inp), dim=-1)
+           residual = model(inp_combined, t)
+           inp = noise_scheduler.step(residual, t[0], inp)[0]
+    return inp

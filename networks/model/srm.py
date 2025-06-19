@@ -1,4 +1,4 @@
-import lightning as L
+import pytorch_lightning as L
 from torch import optim
 import torch
 import torch.nn.functional as F
@@ -23,12 +23,16 @@ class SRM(L.LightningModule):
 
     def training_step(self, batch, batch_idx):
         #Encoder
+        print(f"batch is a list of length {len(batch)}")
+        # Batch is a list of length 2 - Set and Strokes
         Set = batch[0]
-        condition, mu, sigma = self.encoder(Set)
-
+        print(f"Set is a tensor of shape {Set.shape}")
+        encoded, condition, mu, sigma = self.encoder(Set)
+        print(f"condition is a tensor of shape {condition.shape}")
         #Decoder
         #1 instead of 0 to use collate
         Strokes = batch[1]
+        print(f"Strokes is a tensor of shape {Strokes.shape}")
         noise = torch.randn(Strokes.shape, device=self.device)
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (Strokes.shape[1],), device=self.device).long()
         noisy = self.noise_scheduler.add_noise(Strokes, noise, timesteps)
@@ -47,7 +51,7 @@ class SRM(L.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        condition, mu, sigma = self.encoder(batch[0])
+        encoded,condition, mu, sigma = self.encoder(batch[0])
         for i in range(len(condition)):
             filename = f'Results/{self.experiment_name}/{self.current_epoch}_{i}.svg'
             
@@ -55,7 +59,7 @@ class SRM(L.LightningModule):
             draw(self.format, self.sample_size, filename, stroke)
 
     def test_step(self, batch, batch_idx):
-        condition, mu, sigma = self.encoder(batch[0])
+        encoded,condition, mu, sigma = self.encoder(batch[0])
         print(mu)
         filename = f'Samples/{self.experiment_name}/{batch_idx}.svg'
         stroke = sample(self.samples, self.sample_steps, self.decoder, self.noise_scheduler_sample, mu, self.dim_in)
