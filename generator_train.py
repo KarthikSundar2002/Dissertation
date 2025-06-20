@@ -30,15 +30,15 @@ BATCH_SIZE = 256
 dim_in = 6
 encoded_dim = 256
 number_of_strokes = 512
-hidden_size = 32
+hidden_size = 2
 samples = 1000
 steps = 4000
 sample_steps = 25
 beta_schedule = 'scaled_linear'
 wand_b_key = '117905e69dff43b1635103618ba74a5593104105'
 gpu_num = 1
-wandb.login(key=wand_b_key)
-wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir="/wandb")
+# wandb.login(key=wand_b_key)
+# wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir="/wandb")
 train_set = Tensor(train_path)
 
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, collate_fn= my_collate, pin_memory=True)
@@ -51,6 +51,12 @@ checkpoint_callback = ModelCheckpoint(
     every_n_epochs=10000,
     save_on_train_epoch_end=True,
 )
+
+class Print(L.Callback):
+    def on_train_start(self, trainer, pl_module):
+        for param in pl_module.parameters():
+            assert param.device.type == "cuda"
+        print(f"Generator model initialized on {pl_module.device}")
 
 model= L_MLP(
         hidden_size=hidden_size,
@@ -80,7 +86,7 @@ if not os.path.exists("Results/{}".format(experiment_name)):
 if not os.path.exists("Models/{}".format(experiment_name)):
         os.makedirs("Models/{}".format(experiment_name))
 
-trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto',logger=wandb_logger, max_epochs= 5000000,
-                    check_val_every_n_epoch=10000, enable_progress_bar=True, profiler="simple",
-                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback, lr_monitor], benchmark=True)
+trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto', max_epochs= 1,
+                    check_val_every_n_epoch=10000, enable_progress_bar=True, profiler="pytorch",
+                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback, lr_monitor, Print()    ], benchmark=True)
 trainer.fit(model=generator, train_dataloaders=train_loader, val_dataloaders=train_loader)

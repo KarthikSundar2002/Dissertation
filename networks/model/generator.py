@@ -2,6 +2,7 @@ import pytorch_lightning as L
 import torch
 import torch.nn.functional as F
 from torch import optim
+import bitsandbytes as bnb
 
 from utils import l_sample, sample, draw, input_sample
 
@@ -24,24 +25,24 @@ class Generator(L.LightningModule):
     def training_step(self, batch, batch_idx):
         # Set Transformer Encoder
         inp = batch[0] #[Batch, 512, 6]
-        print(f"inp shape {inp.shape}")
+        # print(f"inp shape {inp.shape}")
         noise = torch.randn(inp.shape, device=self.device) #[Batch, 512, 6]
-        print(f"noise shape {noise.shape}")
+        # print(f"noise shape {noise.shape}")
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (inp.shape[0],), device=self.device).long() #[Batch]
-        print(f"timesteps shape {timesteps.shape}")
+        # print(f"timesteps shape {timesteps.shape}")
         inp = inp.transpose(0,1)
         noise = noise.transpose(0,1)
         noisy = self.noise_scheduler.add_noise(inp, noise, timesteps) #{Batch, 512, 6}
         noise = noise.transpose(0,1)
         inp = inp.transpose(0,1)
         noisy = noisy.transpose(0,1)
-        print(f"noisy shape {noisy.shape}")
+        # print(f"noisy shape {noisy.shape}")
         noisy_enc = self.set_transformer_encoder(noisy) #[Batch, 512, 256]
-        print(f"noisy_enc shape {noisy_enc.shape}")
+        # print(f"noisy_enc shape {noisy_enc.shape}")
         noisy_combined = torch.cat((noisy_enc, noisy), dim=-1) #[Batch, 512, 262]
-        print(f"noisy_combined shape {noisy_combined.shape}")
+        # print(f"noisy_combined shape {noisy_combined.shape}")
         noise_pred = self.model(noisy_combined, timesteps) #[Batch, 512, 6]
-        print(f"noise_pred shape {noise_pred.shape}")
+        # print(f"noise_pred shape {noise_pred.shape}")
         loss = F.mse_loss(noise_pred, noise)
         
         # Log metrics
@@ -57,10 +58,13 @@ class Generator(L.LightningModule):
         draw(self.format, self.sample_size, filename, stroke)
 
     def configure_optimizers(self):
-        optimizer = optim.Adam(self.parameters(), lr=self.learning_rate)
+        optimizer = bnb.optim.AdamW(self.parameters(), lr=self.learning_rate)
+
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
             optimizer, 
             milestones=[100000, 1000000, 2000000], 
             gamma=0.1
         )
         return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
+
+ 

@@ -40,27 +40,27 @@ class MLP(nn.Module):
     def forward(self, x, t):
         # x shape: [Batch, 512, 262]
         # t shape: [Batch]
-        print(f"x shape {x.shape}")
-        print(f"t shape {t.shape}")
+        # print(f"x shape {x.shape}")
+        # print(f"t shape {t.shape}")
         t_emb = self.time_mlp(t) #[Batch, 64]
-        print(f"t_emb shape {t_emb.shape}")
+        # print(f"t_emb shape {t_emb.shape}")
         t_emb = t_emb.unsqueeze(1).repeat(1, x.shape[1], 1) #[Batch, 512, 64]
-        print(f"t_emb shape {t_emb.shape}")
+        # print(f"t_emb shape {t_emb.shape}")
         x = torch.cat((x, t_emb), dim=-1) #[Batch, 512, 326]
-        print(f"x shape {x.shape}")
+        # print(f"x shape {x.shape}")
         x = self.joint_mlp(x) #[Batch, 512, 256]
-        print(f"x shape{x.shape}")
+        # print(f"x shape{x.shape}")
         q = self.query(x)
-        print(f'q shape{q.shape}')
+        # print(f'q shape{q.shape}')
         k = self.key(x)
-        print(f'k shape{k.shape}')
+        # print(f'k shape{k.shape}')
         v = self.value(x)
-        print(f'v shape{v.shape}')
+        # print(f'v shape{v.shape}')
         weight = torch.matmul(q.transpose(-1,-2),k)
-        print(f'weight shape{weight.shape}')
+        # print(f'weight shape{weight.shape}')
         qk = self.softmax(weight/q.shape[-1]**0.5)
-        print(f'qk shape{qk.shape}')
+        # print(f'qk shape{qk.shape}')
         x = torch.matmul(v,qk)
-        print(f'x shape{x.shape}')
+        # print(f'x shape{x.shape}')
         x = self.output_layer(x)
         return x
