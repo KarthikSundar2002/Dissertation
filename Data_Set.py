@@ -6,6 +6,7 @@ import numpy as np
 class Tensor(Dataset):
     def __init__(self, path):
         self.data = torch.load(path)
+        print(self.data[0].device)
 
     def __len__(self):
         return len(self.data)

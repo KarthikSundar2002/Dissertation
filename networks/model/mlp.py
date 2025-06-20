@@ -21,10 +21,10 @@ class MLP(nn.Module):
 
         self.time_mlp = PositionalEmbedding(emb_size, time_emb)
 
-        concat_size = emb_size + 262
+        concat_size = emb_size + 14
 
         layers = [nn.Linear(concat_size, hidden_size),nn.LayerNorm(hidden_size), nn.GELU()]
-        attention_size = 256
+        attention_size = 64
         for _ in range(hidden_layers):
             layers.append(l_Block(hidden_size))
         layers.append(nn.Linear(hidden_size,attention_size))
@@ -35,7 +35,8 @@ class MLP(nn.Module):
         self.value = nn.Linear(attention_size,attention_size)
         self.softmax = nn.Softmax(dim=-1)
 
-        self.output_layer = nn.Sequential(nn.Linear(attention_size,256), nn.LayerNorm(256), nn.GELU(), nn.Linear(256,64), nn.LayerNorm(64), nn.GELU(), nn.Linear(64,output_size))  
+        # self.output_layer = nn.Sequential(nn.Linear(attention_size,256), nn.LayerNorm(256), nn.GELU(), nn.Linear(256,64), nn.LayerNorm(64), nn.GELU(), nn.Linear(64,output_size))
+        self.output_layer = nn.Sequential(nn.Linear(attention_size,output_size),nn.LayerNorm(output_size),nn.GELU())
 
     def forward(self, x, t):
         # x shape: [Batch, 512, 262]
@@ -49,17 +50,15 @@ class MLP(nn.Module):
         x = torch.cat((x, t_emb), dim=-1) #[Batch, 512, 326]
         # print(f"x shape {x.shape}")
         x = self.joint_mlp(x) #[Batch, 512, 256]
-        # print(f"x shape{x.shape}")
+
         q = self.query(x)
-        # print(f'q shape{q.shape}')
+
         k = self.key(x)
-        # print(f'k shape{k.shape}')
+
         v = self.value(x)
-        # print(f'v shape{v.shape}')
+
         weight = torch.matmul(q.transpose(-1,-2),k)
-        # print(f'weight shape{weight.shape}')
         qk = self.softmax(weight/q.shape[-1]**0.5)
-        # print(f'qk shape{qk.shape}')
         x = torch.matmul(v,qk)
         # print(f'x shape{x.shape}')
         x = self.output_layer(x)

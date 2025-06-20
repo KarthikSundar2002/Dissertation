@@ -20,31 +20,35 @@ class Generator(L.LightningModule):
         self.number_of_strokes = number_of_strokes
         self.format = format_path
         self.sample_size = sample_size
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["model", "set_transformer_encoder"])
 
     def training_step(self, batch, batch_idx):
         # Set Transformer Encoder
-        inp = batch[0] #[Batch, 512, 6]
-        # print(f"inp shape {inp.shape}")
+
+        inp = batch
+
         noise = torch.randn(inp.shape, device=self.device) #[Batch, 512, 6]
-        # print(f"noise shape {noise.shape}")
+
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (inp.shape[0],), device=self.device).long() #[Batch]
-        # print(f"timesteps shape {timesteps.shape}")
+
         inp = inp.transpose(0,1)
         noise = noise.transpose(0,1)
         noisy = self.noise_scheduler.add_noise(inp, noise, timesteps) #{Batch, 512, 6}
         noise = noise.transpose(0,1)
         inp = inp.transpose(0,1)
         noisy = noisy.transpose(0,1)
+
         # print(f"noisy shape {noisy.shape}")
         noisy_enc = self.set_transformer_encoder(noisy) #[Batch, 512, 256]
+
         # print(f"noisy_enc shape {noisy_enc.shape}")
         noisy_combined = torch.cat((noisy_enc, noisy), dim=-1) #[Batch, 512, 262]
         # print(f"noisy_combined shape {noisy_combined.shape}")
         noise_pred = self.model(noisy_combined, timesteps) #[Batch, 512, 6]
         # print(f"noise_pred shape {noise_pred.shape}")
+
         loss = F.mse_loss(noise_pred, noise)
-        
+
         # Log metrics
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
@@ -52,7 +56,6 @@ class Generator(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Generate a latent vector
         stroke = input_sample(self.model, self.set_transformer_encoder, self.noise_scheduler_sample, 6, self.number_of_strokes, self.timesteps)
-        print(f"stroke shape {stroke.shape}")
         # Save the generated drawing
         filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
         draw(self.format, self.sample_size, filename, stroke)
@@ -61,10 +64,12 @@ class Generator(L.LightningModule):
         optimizer = bnb.optim.AdamW(self.parameters(), lr=self.learning_rate)
 
         scheduler = torch.optim.lr_scheduler.MultiStepLR(
-            optimizer, 
-            milestones=[100000, 1000000, 2000000], 
+            optimizer,
+            milestones=[100000, 1000000, 2000000],
             gamma=0.1
         )
+        print(
+            f"Optimizer states on GPU: {all(v.is_cuda for state in optimizer.state.values() for v in state.values() if torch.is_tensor(v))}")
         return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
 
  

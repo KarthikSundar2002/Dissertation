@@ -20,20 +20,20 @@ format_path = 'format.svg'
 train_path = '10k.pt'
 sample_size = 512
 learning_rate = 1e-4
-BATCH_SIZE = 256
+BATCH_SIZE = 10240
 
 dim_in = 6
 encoded_dim = 256
 number_of_strokes = 512
-hidden_size = 2
+hidden_size = 16
 steps = 4000
 sample_steps = 25
 beta_schedule = 'scaled_linear'
-max_epochs = 1
+max_epochs = 10000
 check_val_every_n_epoch = 10000
 
 # Profiler settings
-use_profiler = True
+use_profiler = False
 profile_epoch = 1  # Profile the first epoch
 profile_steps = 50  # Number of steps to profile
 
@@ -48,8 +48,8 @@ if not os.path.exists(f"Models/{experiment_name}"):
     os.makedirs(f"Models/{experiment_name}")
 
 if use_profiler:
-    if not os.path.exists(f"/scratch/ks02450/Profiler/{experiment_name}"):
-        os.makedirs(f"/scratch/ks02450/Profiler/{experiment_name}")
+    if not os.path.exists(f"Profiler/{experiment_name}"):
+        os.makedirs(f"Profiler/{experiment_name}")
 
 # Data loading
 train_set = Tensor(train_path)
@@ -67,10 +67,10 @@ model = L_MLP(
 set_transformer = SetTransformer(
     dim_input=dim_in,
     num_outputs=1,
-    dim_output=256,
-    num_inds=32,
-    dim_hidden=256,
-    num_heads=16,
+    dim_output=8,
+    num_inds=8,
+    dim_hidden=8,
+    num_heads=4,
     ln=True
 )
 
@@ -116,7 +116,7 @@ def training_step(batch):
     inp = inp.transpose(0, 1)
     noisy = noisy.transpose(0, 1)
     
-    noisy_enc = set_transformer.enc(noisy)  # [Batch, 512, 256]
+    noisy_enc = set_transformer(noisy)  # [Batch, 512, 256]
     noisy_combined = torch.cat((noisy_enc, noisy), dim=-1)  # [Batch, 512, 262]
     noise_pred = model(noisy_combined, timesteps)  # [Batch, 512, 6]
     loss = F.mse_loss(noise_pred, noise)
@@ -177,7 +177,7 @@ for epoch in range(max_epochs):
                 active=profile_steps,
                 repeat=1
             ),
-            on_trace_ready=torch.profiler.tensorboard_trace_handler(f"/scratch/ks02450/Profiler/{experiment_name}"),
+            on_trace_ready=torch.profiler.tensorboard_trace_handler(f"Profiler/{experiment_name}"),
             record_shapes=True,
             with_stack=True,
             profile_memory=True
@@ -225,10 +225,11 @@ for epoch in range(max_epochs):
         # Step the profiler if profiling is enabled
         if use_profiler and epoch == profile_epoch - 1:
             profiler.step()
-    
+    sort_by_keyword = "self_cpu_time_total"
     # Stop profiler if it was active
     if use_profiler and epoch == profile_epoch - 1:
         profiler.stop()
+        print(profiler.key_averages(group_by_stack_n=5).table(sort_by=sort_by_keyword, row_limit=10))
         print(f"Profiling completed for epoch {epoch + 1}. Check Profiler/{experiment_name} for results.")
     
     # Update learning rate scheduler
@@ -257,7 +258,7 @@ print(f"Total training time: {total_time/3600:.2f} hours")
 
 # Print profiler instructions
 if use_profiler:
-    print(f"\nProfiler results saved to: /scratch/ks02450/Profiler/{experiment_name}")
+    print(f"\nProfiler results saved to: Profiler/{experiment_name}")
     print("To view the profiler results:")
     print("1. Install tensorboard: pip install tensorboard")
     print("2. Run: tensorboard --logdir=Profiler")

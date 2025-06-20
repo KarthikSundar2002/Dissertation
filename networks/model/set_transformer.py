@@ -10,6 +10,7 @@ class SetTransformer(nn.Module):
             ISAB(dim_input, dim_hidden, num_heads, num_inds, ln=ln),
             ISAB(dim_hidden, dim_hidden, num_heads, num_inds, ln=ln)
         )
+        # self.enc = nn.Sequential(nn.Linear(dim_input, dim_output))
         
         # self.dec = nn.Sequential(
         #     PMA(dim_hidden, num_heads, num_outputs, ln=ln),
@@ -22,12 +23,12 @@ class SetTransformer(nn.Module):
         
         # self.N = torch.distributions.Normal(0, 1)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(f"device in set transformer: {self.device}")
         # self.N.loc = self.N.loc.to(self.device)
         # self.N.scale = self.N.scale.to(self.device)
 
     def forward(self, X):
         encoded = self.enc(X)
-        print(f"encoded.shape in set transformer: {encoded.shape}")
         # y = self.dec(encoded)
         # print(f"y.shape in set transformer: {y.shape}")
         # mu = self.linear_mu(y)  
