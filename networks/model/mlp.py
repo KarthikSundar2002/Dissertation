@@ -50,16 +50,19 @@ class MLP(nn.Module):
         x = torch.cat((x, t_emb), dim=-1) #[Batch, 512, 326]
         # print(f"x shape {x.shape}")
         x = self.joint_mlp(x) #[Batch, 512, 256]
-
+        print(f"X shape {x.shape}")
         q = self.query(x)
-
+        print(f"Q shape {q.shape}")
         k = self.key(x)
-
+        print(f"K shape {k.shape}")
         v = self.value(x)
-
-        weight = torch.matmul(q.transpose(-1,-2),k)
+        print(f"V shape {v.shape}")
+        weight = torch.matmul(q,k.transpose(-1,-2))
+        print(f"Weight shape {weight.shape}")
         qk = self.softmax(weight/q.shape[-1]**0.5)
-        x = torch.matmul(v,qk)
+        print(f"QK shape {qk.shape}")
+        x = torch.matmul(qk,v)
+        print(f"X shape {x.shape}")
         # print(f'x shape{x.shape}')
         x = self.output_layer(x)
         return x
