@@ -7,11 +7,26 @@ import torch.optim as optim
 import torch.distributions as D
 from utils import draw
 
-def check_for_all_nan(tensor, name):
-    if torch.isnan(tensor).all():
-        print(f"All NaN found in {name}")
+def check_for_nan_or_inf(tensor, name):
+    # This is a more robust check
+    if torch.isnan(tensor).any() or torch.isinf(tensor).any():
+        print(f"!!! Invalid values (NaN or Inf) found in {name}")
         return True
     return False
+
+def check_tensor(tensor, name):
+    """A comprehensive tensor check that stops execution on finding NaN or Inf."""
+    if not torch.is_tensor(tensor):
+        print(f"{name} is not a tensor.")
+        return
+    if torch.isnan(tensor).any() or torch.isinf(tensor).any():
+        print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"!!! INVALID TENSOR FOUND: {name} !!!")
+        print(f"!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+        print(f"Has NaN: {torch.isnan(tensor).any()}, Has Inf: {torch.isinf(tensor).any()}")
+        # Raising an error is the best way to get a full stack trace
+        # to the exact line that created the invalid values.
+        raise ValueError(f"Invalid value found in tensor: {name}")
 
 # Helper functions from metrics and ops, assuming they exist and are correct
 def get_mask(output_sizes, max_outputs):
@@ -37,7 +52,7 @@ def chamfer_loss(a, a_mask, b, b_mask, accelerate=False):
     a_norm = (a**2).sum(-1, keepdim=True)
     b_norm = (b**2).sum(-1, keepdim=True)
     dist = a_norm + b_norm.transpose(1, 2) - 2 * torch.bmm(a, b.transpose(1, 2))
-    dist = torch.sqrt(torch.clamp(dist, min=0))
+    dist = torch.sqrt(torch.clamp(dist, min=0) + 1e-8)
     
     if a_mask is not None:
       dist = torch.where(a_mask.unsqueeze(2), torch.full_like(dist, float('inf')), dist)
@@ -53,7 +68,6 @@ def chamfer_loss(a, a_mask, b, b_mask, accelerate=False):
         dist_ba = torch.where(b_mask, torch.zeros_like(dist_ba), dist_ba)
 
     loss = dist_ab.sum(1) / ((~a_mask).float().sum(1) + 1e-8) + dist_ba.sum(1) / ((~b_mask).float().sum(1) + 1e-8)
-    print(f"Loss: {loss.mean()}")
     return loss.mean()
 
 def emd_loss(a, a_mask, b, b_mask):
@@ -144,9 +158,15 @@ class ResidualAttention(nn.Module):
         q_ = torch.cat(query.split(self.dim_split, 2), 0)
         k_ = torch.cat(key.split(self.dim_split, 2), 0)
         v_ = torch.cat(value.split(self.dim_split, 2), 0)
-        
+        check_tensor(q_, "q_")
+        check_for_nan_or_inf(q_, "q_")
+        check_tensor(k_, "k_")
+        check_for_nan_or_inf(k_, "k_")
+        check_tensor(v_, "v_")
+        check_for_nan_or_inf(v_, "v_")
         sdp = torch.bmm(q_, k_.transpose(1, 2)) / math.sqrt(self.dim_v) # [H*B, N, M]
-        
+        check_tensor(sdp, "sdp")
+        check_for_nan_or_inf(sdp, "sdp")
         if x_mask is not None or y_mask is not None:
             x_m = x_mask.unsqueeze(2) if x_mask is not None else torch.zeros(bs, xs, 1, dtype=torch.bool, device=query.device) # [B, N, 1]
             y_m = y_mask.unsqueeze(1) if y_mask is not None else torch.zeros(bs, 1, ys, dtype=torch.bool, device=query.device) # [B, 1, M]
@@ -155,37 +175,58 @@ class ResidualAttention(nn.Module):
             sdp.masked_fill_(mask, -float('inf'))
 
         alpha = torch.softmax(sdp, -1) # [H*B, N, M]
-
+        alpha = torch.nan_to_num(alpha)
+        check_tensor(alpha, "alpha")
+        check_for_nan_or_inf(alpha, "alpha")
         att = torch.bmm(alpha, v_)
         att = torch.cat(att.split(bs, 0), 2)
-        
+        check_tensor(att, "att")
+        check_for_nan_or_inf(att, "att")
         return att, alpha.view(self.num_heads, bs, xs, ys)
 
     def forward(self, x, y, x_mask=None, y_mask=None, get_alpha=False):
         q = self.fc_q(x)
         k = self.fc_k(y)
         v = self.fc_v(y)
-
+        check_tensor(q, "q")
+        check_for_nan_or_inf(q, "q")
+        check_tensor(k, "k")
+        check_for_nan_or_inf(k, "k")
+        check_tensor(v, "v")
+        check_for_nan_or_inf(v, "v")
         att, alpha = self.compute_attention(q, k, v, x_mask, y_mask)
+        check_tensor(att, "att")
+        check_for_nan_or_inf(att, "att")
+        check_tensor(alpha, "alpha")
+        check_for_nan_or_inf(alpha, "alpha")
         att = self.fc_o(att)
+        check_tensor(att, "att")
+        check_for_nan_or_inf(att, "att")
         if hasattr(self, 'dropout'):
             att = self.dropout(att)
-        
+        check_tensor(att, "att")
+        check_for_nan_or_inf(att, "att")
         o = x + att
         if hasattr(self, 'ln_o1'):
             o = self.ln_o1(o)
-        
+        check_tensor(o, "o")
+        check_for_nan_or_inf(o, "o")
         ff = self.ffn2(F.relu(self.ffn1(o)))
+        check_tensor(ff, "ff")
+        check_for_nan_or_inf(ff, "ff")
         if hasattr(self, 'dropout'):
             ff = self.dropout(ff)
-            
+        check_tensor(ff, "ff")
+        check_for_nan_or_inf(ff, "ff")
         o = o + ff
         if hasattr(self, 'ln_o2'):
             o = self.ln_o2(o)
-        
+        check_tensor(o, "o")
+        check_for_nan_or_inf(o, "o")
         if x_mask is not None:
             o = o.masked_fill(x_mask.unsqueeze(-1), 0)
-            
+        check_tensor(o, "o")
+        check_for_nan_or_inf(o, "o")
         if get_alpha:
             return o, alpha
         return o
@@ -201,16 +242,33 @@ class AttentiveBlock(nn.Module):
 
     def project(self, x, x_mask=None):
         i = self.i.repeat(x.shape[0], 1, 1)
+        check_tensor(i, "project i")
+        check_for_nan_or_inf(i, "project i")
         h, alpha = self.att1(i, x, None, x_mask, get_alpha=True)
+        check_tensor(h, "project h")
+        check_for_nan_or_inf(h, "project h")
+        check_tensor(alpha, "project alpha")
+        check_for_nan_or_inf(alpha, "project alpha")
         return h, alpha.transpose(2, 3)
 
     def broadcast(self, h, x, x_mask=None):
         o, alpha = self.att2(x, h, x_mask, None, get_alpha=True)
+        check_tensor(o, "broadcast o")
+        check_for_nan_or_inf(o, "broadcast")
+        check_tensor(alpha, "broadcast alpha")
+        check_for_nan_or_inf(alpha, "broadcast")
         return o, alpha
 
     def forward(self, x, x_mask=None):
         h, alpha1 = self.project(x, x_mask)
+        check_tensor(h, "project h")
+        check_for_nan_or_inf(h, "project h")
+        check_tensor(alpha1, "project alpha1")
+        check_for_nan_or_inf(alpha1, "project alpha1")
         o, alpha2 = self.broadcast(h, x, x_mask)
+        check_tensor(o, "broadcast o")
+        check_for_nan_or_inf(o, "broadcast o")
+        check_tensor(alpha2, "broadcast alpha2")
         return o, h, alpha1, alpha2
 
 class ISAB(AttentiveBlock):
@@ -266,10 +324,15 @@ class DeterministicNetwork(nn.Module):
 
     def forward(self, x, x_mask):
         if self.net_type == 'elem_mlp':
-            return self.net(x, x_mask)
+            x = self.net(x, x_mask)
+            check_tensor(x, "elem_mlp")
+            check_for_nan_or_inf(x, "elem_mlp")
+            return x
         elif self.net_type == 'set_transformer':
             for layer in self.net:
                 x = layer(x, x_mask)
+                check_tensor(x, "set_transformer")
+                check_for_nan_or_inf(x, "set_transformer")
             return x
 
 
@@ -332,6 +395,12 @@ class DecoderBlock(AttentiveBlock):
         logvar = prior[..., prior.shape[-1]//2:].clamp(-4., 3.)
         eps = torch.randn(mu.shape).to(h)
         z = mu + torch.exp(logvar / 2.) * eps
+        check_tensor(z, "compute_prior")
+        check_for_nan_or_inf(z, "compute_prior")
+        check_tensor(mu, "compute_prior")
+        check_for_nan_or_inf(mu, "compute_prior")
+        check_tensor(logvar, "compute_prior")
+        check_for_nan_or_inf(logvar, "compute_prior")
         return z, mu, logvar
 
     def compute_posterior(self, mu, logvar, bottom_up_h, h=None):
@@ -346,6 +415,12 @@ class DecoderBlock(AttentiveBlock):
         eps = torch.randn(mu.shape).to(mu)
         z = (mu + mu2) + (sigma * sigma2) * eps
         kl = -0.5 * (logvar2 + 1. - mu2.pow(2) / sigma.pow(2) - sigma2.pow(2)).view(mu.shape[0], -1).sum(dim=-1)
+        check_tensor(z, "compute_posterior")
+        check_for_nan_or_inf(z, "compute_posterior")
+        check_tensor(kl, "compute_posterior")
+        check_for_nan_or_inf(kl, "compute_posterior")
+        check_tensor(mu2, "compute_posterior")
+        check_for_nan_or_inf(mu2, "compute_posterior")
         return z, kl, mu2, logvar2
 
     def broadcast_latent(self, z, h, x, x_mask=None):
@@ -432,49 +507,79 @@ class SetVAE(pl.LightningModule):
 
     def bottom_up(self, x, x_mask):
         x = self.input_proj(x)
-        check_for_all_nan(x, "input_proj")
+        check_tensor(x, "input_proj")
+        check_for_nan_or_inf(x, "input_proj")
         x = self.pre_encoder(x, x_mask)
-        check_for_all_nan(x, "pre_encoder")
+        check_tensor(x, "pre_encoder")
+        check_for_nan_or_inf(x, "pre_encoder")
         features = []
         for layer in self.encoder:
-            x, h, _, _ = layer(x, x_mask)
+            x, h, alpha1, alpha2 = layer(x, x_mask)
+            check_tensor(x, "encoder")
+            check_for_nan_or_inf(x, "encoder")
+            check_tensor(h, "encoder")
+            check_for_nan_or_inf(h, "encoder")
+            check_tensor(alpha1, "encoder")
+            check_for_nan_or_inf(alpha1, "encoder")
+            check_tensor(alpha2, "encoder")
+            check_for_nan_or_inf(alpha2, "encoder")
             features.append(h)
         return features
 
     def top_down(self, cardinality, bottom_up_h):
         o, o_mask = self.init_set(cardinality)
+        check_tensor(o, "init_set")
+        check_for_nan_or_inf(o, "init_set")
+        check_tensor(o_mask, "init_set")
+        check_for_nan_or_inf(o_mask, "init_set")
         o = self.pre_decoder(o, o_mask)
-        check_for_all_nan(o, "pre_decoder")
+        check_tensor(o, "pre_decoder")
+        check_for_nan_or_inf(o, "pre_decoder")
+        check_tensor(o_mask, "pre_decoder")
+        check_for_nan_or_inf(o_mask, "pre_decoder")
         kls = []
         posteriors = []
         for idx, layer in enumerate(self.decoder):
-            h, _ = layer.project(o, o_mask)
+            h, alpha1 = layer.project(o, o_mask)
+            check_tensor(h, "decoder")
+            check_for_nan_or_inf(h, "decoder")
+            check_tensor(alpha1, "decoder")
+            check_for_nan_or_inf(alpha1, "decoder")
             _, mu, logvar = layer.compute_prior(h)
             z, kl, mu2, logvar2 = layer.compute_posterior(mu, logvar, bottom_up_h[idx], None if idx == 0 else h)
+            check_tensor(z, "decoder")
             o, _ = layer.broadcast_latent(z, h, o, o_mask)
             kls.append(kl)
             posteriors.append((z, mu2, logvar2))
         o = self.post_decoder(o, o_mask)
-        check_for_all_nan(o, "post_decoder")
+        check_tensor(o, "post_decoder")
+        check_for_nan_or_inf(o, "post_decoder")
         o = self.output_proj(o)
-        check_for_all_nan(o, "output_proj")
+        check_tensor(o, "output_proj")
+        check_for_nan_or_inf(o, "output_proj")
         return {'set': o, 'set_mask': o_mask, 'kls': kls, 'posteriors': posteriors}
 
     def forward(self, x, x_mask):
       
         features = self.bottom_up(x, x_mask)
         for feature in features:
-            check_for_all_nan(feature, "feature")
+            check_for_nan_or_inf(feature, "feature")
         output = self.top_down((~x_mask).sum(-1), list(reversed(features)))
-        check_for_all_nan(output['set'], "output['set']")
-        print(f"Output shape is {output['set'].shape}")
+        check_for_nan_or_inf(output['set'], "output['set']")
         return output
 
     def training_step(self, batch, batch_idx):
         x, x_mask = batch[0], batch[1]
         output = self(x, x_mask)
         output_set, output_mask, kls = output['set'], output['set_mask'], output['kls']
-
+        if batch_idx == 0: # Only need to check the first batch
+            output_set.register_hook(
+                lambda grad: print(
+                    "--- Gradient Hook for output_set ---\n",
+                    "Has NaN:", torch.isnan(grad).any(),
+                    "Has Inf:", torch.isinf(grad).any()
+                )
+            )
         if self.hparams.matcher == 'chamfer':
             recon_loss = chamfer_loss(output_set, output_mask, x, x_mask)
         elif self.hparams.matcher == 'emd':
@@ -487,13 +592,38 @@ class SetVAE(pl.LightningModule):
         kl_weight = self.hparams.beta
         if self.hparams.kl_warmup_epochs > 0:
             kl_weight *= torch.clamp(torch.tensor(self.current_epoch / self.hparams.kl_warmup_epochs, device=self.device), 0.0, 1.0)
-            
+        
         loss = recon_loss + kl_weight * kl_loss
         
         self.log('train/loss', loss)
         self.log('train/recon_loss', recon_loss)
         self.log('train/kl_loss', kl_loss)
         self.log('train/kl_weight', kl_weight)
+
+        # print(f"--- Batch {batch_idx} ---")
+        # if torch.isnan(recon_loss).any() or torch.isinf(recon_loss).any():
+        #     print(f"!!! Invalid Reconstruction Loss: {recon_loss.item()}")
+        # else:
+        #     print(f"Reconstruction Loss: {recon_loss.item()}")
+
+        # if torch.isnan(kl_loss).any() or torch.isinf(kl_loss).any():
+        #     print(f"!!! Invalid KL Loss: {kl_loss.item()}")
+        # else:
+        #     print(f"KL Loss: {kl_loss.item()}")
+        # === END DEBUGGING PRINTS ===
+
+        #loss = recon_loss + kl_weight * kl_loss
+        loss = recon_loss
+        # print(f"KL Weight: {kl_weight}")
+        # print(f"Loss: {loss.item()}")
+        self.log('train/loss', loss)
+        self.log('train/recon_loss', recon_loss)
+        self.log('train/kl_loss', kl_loss)
+        self.log('train/kl_weight', kl_weight)
+        
+        # Check if the final loss is NaN before backward pass
+        if torch.isnan(loss):
+            raise ValueError("Loss is NaN, stopping training.")
         
         return loss
 
@@ -528,11 +658,14 @@ class SetVAE(pl.LightningModule):
         filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
         draw(self.format, self.sample_size, filename, output_set)
     
-    def on_before_optimizer_step(self, optimizer, optimizer_idx):
-        for name, param in self.named_parameters():
-            if param.grad is not None:
-                norms = torch.norm(param.grad, p=2)
-                print(f"Gradient norm is {norms} for param {name}")
+    # def on_before_optimizer_step(self, optimizer):
+
+        # for name, param in self.named_parameters():
+        #     if param.grad is not None:
+        #         norms = torch.norm(param.grad, p=2)
+        #         print(f"Gradient norm is {norms} for param {name}")
+
+        
                 
 
         
