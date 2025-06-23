@@ -13,6 +13,19 @@ class Tensor(Dataset):
     def __getitem__(self, idx):
         data = self.data[idx]
         return data
+
+class Val_Dataset(Dataset):
+    def __init__(self, path):
+        self.data = torch.load(path)
+        self.data = self.data[:1]
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        return data
+
 def my_collate(batch):
     # B x Set(S) x Strokes(s)
     # print(f"Batch is a list of length {len(batch)}")
@@ -23,13 +36,13 @@ def my_collate(batch):
     # In the Modified version, we pad the Set tensor to a predefined maximum number of strokes
     # Strokes is a tensor of shape (Batch Size, Sampled Strokes Size, 6 - Number of Parameters to describe a stroke (3 control points - So 3 * 2 parameters))
 
-    number_of_strokes = 5
+    number_of_strokes = 512
     batch[0] = torch.nn.functional.pad(batch[0], (0, 0, number_of_strokes - batch[0].shape[0], 0))
     Set = pad_sequence(batch, batch_first=True)
     #Strokes
     R = []
 
-    samp = 5
+    samp = 512
     for idx, val in enumerate(batch):
         if len(batch[idx]) <= samp:
             Randomly_sampled_strokes = random.choices(batch[idx], k=samp)

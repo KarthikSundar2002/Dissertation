@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 import torch.optim as optim
 import torch.distributions as D
-
+from utils import draw
 # Helper functions from metrics and ops, assuming they exist and are correct
 def get_mask(output_sizes, max_outputs):
     """Creates a boolean mask of shape [B, N]"""
@@ -33,9 +33,9 @@ def chamfer_loss(a, a_mask, b, b_mask, accelerate=False):
     dist = torch.sqrt(torch.clamp(dist, min=0))
     
     if a_mask is not None:
-        dist.masked_fill_(a_mask.unsqueeze(2), float('inf'))
+      dist = torch.where(a_mask.unsqueeze(2), torch.full_like(dist, float('inf')), dist)
     if b_mask is not None:
-        dist.masked_fill_(b_mask.unsqueeze(1), float('inf'))
+      dist = torch.where(b_mask.unsqueeze(1), torch.full_like(dist, float('inf')), dist)
 
     dist_ab, _ = torch.min(dist, dim=2)
     dist_ba, _ = torch.min(dist, dim=1)
@@ -192,19 +192,12 @@ class AttentiveBlock(nn.Module):
         self.att2 = ResidualAttention(dim_in, dim_out, dim_out, num_heads, ln, dropout_p)
 
     def project(self, x, x_mask=None):
-        print(f"X shape is {x.shape}")
-        print(f"X mask shape is {x_mask.shape}")
         i = self.i.repeat(x.shape[0], 1, 1)
-        print(f"I shape is {i.shape}")
         h, alpha = self.att1(i, x, None, x_mask, get_alpha=True)
-        print(f"H shape is {h.shape}")
-        print(f"Alpha shape is {alpha.shape}")
         return h, alpha.transpose(2, 3)
 
     def broadcast(self, h, x, x_mask=None):
         o, alpha = self.att2(x, h, x_mask, None, get_alpha=True)
-        print(f"O shape is {o.shape}")
-        print(f"Alpha shape is {alpha.shape}")
         return o, alpha
 
     def forward(self, x, x_mask=None):
@@ -356,7 +349,7 @@ class SetVAE(pl.LightningModule):
         self,
         input_dim=2,
         max_outputs=100,
-        z_scales=[16, 32, 64, 128, 256],
+        z_scales=[256,128,64,32,32],
         hidden_dim=128,
         num_heads=4,
         z_dim=32,
@@ -386,10 +379,14 @@ class SetVAE(pl.LightningModule):
         matcher='chamfer',
         beta=1.0,
         kl_warmup_epochs=0,
+        format_path='format.svg',
+        sample_size=512,
+        experiment_name='setVAE',
     ):
         super().__init__()
         self.save_hyperparameters()
-
+        self.format = format_path
+        self.sample_size = sample_size
         self.input_dim = input_dim
         self.max_outputs = max_outputs
         self.z_scales = z_scales
@@ -397,6 +394,7 @@ class SetVAE(pl.LightningModule):
         self.z_dim = z_dim
         self.enc_inds = list(reversed(self.z_scales))
         self.dec_inds = self.z_scales
+        self.experiment_name = experiment_name
 
         self.input_proj = nn.Linear(self.hparams.input_dim, self.hparams.hidden_dim)
         
@@ -426,15 +424,12 @@ class SetVAE(pl.LightningModule):
 
     def bottom_up(self, x, x_mask):
         x = self.input_proj(x)
-        print(f"X shape after input proj is {x.shape}")
+
         x = self.pre_encoder(x, x_mask)
-        print(f"X shape after pre-encoder is {x.shape}")
         features = []
         for layer in self.encoder:
             x, h, _, _ = layer(x, x_mask)
             features.append(h)
-        print(f"Features length is {len(features)}")
-        print(f"Features shape is {features[0].shape}")
         return features
 
     def top_down(self, cardinality, bottom_up_h):
@@ -450,16 +445,13 @@ class SetVAE(pl.LightningModule):
             kls.append(kl)
             posteriors.append((z, mu2, logvar2))
         o = self.post_decoder(o, o_mask)
+     
         o = self.output_proj(o)
         return {'set': o, 'set_mask': o_mask, 'kls': kls, 'posteriors': posteriors}
 
     def forward(self, x, x_mask):
-        print(f"X shape is {x.shape}")
-        print(f"X mask shape is {x_mask.shape}")
+      
         features = self.bottom_up(x, x_mask)
-        print(f"Features length is {len(features)}")
-        for feature in features:
-            print(f"Feature shape is {feature.shape}")
         output = self.top_down((~x_mask).sum(-1), list(reversed(features)))
         return output
 
@@ -513,3 +505,11 @@ class SetVAE(pl.LightningModule):
         o = self.post_decoder(o, o_mask)
         o = self.output_proj(o)
         return {'set': o, 'set_mask': o_mask, 'priors': priors} 
+    
+    def validation_step(self, batch, batch_idx):
+        x, x_mask = batch[0], batch[1]
+        output = self(x, x_mask)
+        output_set, output_mask, kls = output['set'], output['set_mask'], output['kls']
+        filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
+        draw(self.format, self.sample_size, filename, output_set)
+        
