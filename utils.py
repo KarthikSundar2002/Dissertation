@@ -89,3 +89,27 @@ def input_sample(model, set_transformer_encoder, noise_scheduler, dim_per_stroke
            residual = model(inp_combined, t)
            inp = noise_scheduler.step(residual, t[0], inp)[0]
     return inp
+
+def draw_points_svg(filename, drawing, num_strokes=5, num_points=17):
+    """
+    Draws a batch of drawings (shape [1, num_strokes, num_points*2]) as SVG using matplotlib, similar to visualize_pt.py.
+    Accepts drawing as a torch.Tensor on GPU or CPU.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    if isinstance(drawing, torch.Tensor):
+        drawing = drawing.detach().cpu().numpy()
+    drawing = drawing[0]  # Remove batch dimension if present
+    plt.figure(figsize=(6, 6))
+    for stroke in drawing:
+        points = np.array(stroke).reshape(num_points, 2)
+        for i in range(num_points - 1):
+            x0, y0 = points[i]
+            x1, y1 = points[i + 1]
+            if (x0, y0) != (0, 0) and (x1, y1) != (0, 0):
+                plt.plot([x0, x1], [y0, y1], marker='o')
+    plt.gca().invert_yaxis()
+    plt.axis('equal')
+    plt.axis('off')
+    plt.savefig(filename, format='svg', bbox_inches='tight')
+    plt.close()

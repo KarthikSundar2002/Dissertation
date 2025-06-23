@@ -21,7 +21,7 @@ class MLP(nn.Module):
 
         self.time_mlp = PositionalEmbedding(emb_size, time_emb)
 
-        concat_size = emb_size + 14
+        concat_size = emb_size + 42
 
         layers = [nn.Linear(concat_size, hidden_size),nn.LayerNorm(hidden_size), nn.GELU()]
         attention_size = 64

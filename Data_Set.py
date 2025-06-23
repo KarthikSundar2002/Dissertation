@@ -6,7 +6,6 @@ import numpy as np
 class Tensor(Dataset):
     def __init__(self, path):
         self.data = torch.load(path)
-        print(self.data[0].device)
 
     def __len__(self):
         return len(self.data)
@@ -24,13 +23,13 @@ def my_collate(batch):
     # In the Modified version, we pad the Set tensor to a predefined maximum number of strokes
     # Strokes is a tensor of shape (Batch Size, Sampled Strokes Size, 6 - Number of Parameters to describe a stroke (3 control points - So 3 * 2 parameters))
 
-    number_of_strokes = 512
+    number_of_strokes = 5
     batch[0] = torch.nn.functional.pad(batch[0], (0, 0, number_of_strokes - batch[0].shape[0], 0))
     Set = pad_sequence(batch, batch_first=True)
     #Strokes
     R = []
 
-    samp = 512
+    samp = 5
     for idx, val in enumerate(batch):
         if len(batch[idx]) <= samp:
             Randomly_sampled_strokes = random.choices(batch[idx], k=samp)

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import optim
 import bitsandbytes as bnb
 
-from utils import l_sample, sample, draw, input_sample
+from utils import l_sample, sample, draw, input_sample, draw_points_svg
 
 class Generator(L.LightningModule):
     def __init__(self, model, set_transformer_encoder, experiment_name, timesteps, noise_scheduler, noise_scheduler_sample, learning_rate,format_path,sample_size, encoded_dim=256, number_of_strokes=512):
@@ -26,6 +26,7 @@ class Generator(L.LightningModule):
         # Set Transformer Encoder
 
         inp = batch
+        print(f"Input shape {inp.shape}")
 
         noise = torch.randn(inp.shape, device=self.device) #[Batch, 512, 6]
 
@@ -40,7 +41,7 @@ class Generator(L.LightningModule):
 
         # print(f"noisy shape {noisy.shape}")
         noisy_enc = self.set_transformer_encoder(noisy) #[Batch, 512, 256]
-
+        print(f"Noisy enc shape {noisy_enc.shape}")
         # print(f"noisy_enc shape {noisy_enc.shape}")
         noisy_combined = torch.cat((noisy_enc, noisy), dim=-1) #[Batch, 512, 262]
         # print(f"noisy_combined shape {noisy_combined.shape}")
@@ -55,10 +56,10 @@ class Generator(L.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # Generate a latent vector
-        stroke = input_sample(self.model, self.set_transformer_encoder, self.noise_scheduler_sample, 6, self.number_of_strokes, self.timesteps)
+        stroke = input_sample(self.model, self.set_transformer_encoder, self.noise_scheduler_sample, 34, 5, self.timesteps)
         # Save the generated drawing
         filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
-        draw(self.format, self.sample_size, filename, stroke)
+        draw_points_svg(filename, stroke)
 
     def configure_optimizers(self):
         optimizer = bnb.optim.AdamW(self.parameters(), lr=self.learning_rate)

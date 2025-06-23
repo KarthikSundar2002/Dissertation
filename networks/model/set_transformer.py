@@ -12,11 +12,11 @@ class SetTransformer(nn.Module):
         )
         # self.enc = nn.Sequential(nn.Linear(dim_input, dim_output))
         
-        # self.dec = nn.Sequential(
-        #     PMA(dim_hidden, num_heads, num_outputs, ln=ln),
-        #     SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
-        #     SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
-        # )
+        self.dec = nn.Sequential(
+            PMA(dim_hidden, num_heads, num_outputs, ln=ln),
+            SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+            SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+        )
         
         # self.linear_mu = nn.Linear(dim_hidden, dim_output)
         # self.linear_sigma = nn.Linear(dim_hidden, dim_output)
