@@ -6,6 +6,13 @@ import pytorch_lightning as pl
 import torch.optim as optim
 import torch.distributions as D
 from utils import draw
+
+def check_for_all_nan(tensor, name):
+    if torch.isnan(tensor).all():
+        print(f"All NaN found in {name}")
+        return True
+    return False
+
 # Helper functions from metrics and ops, assuming they exist and are correct
 def get_mask(output_sizes, max_outputs):
     """Creates a boolean mask of shape [B, N]"""
@@ -41,11 +48,12 @@ def chamfer_loss(a, a_mask, b, b_mask, accelerate=False):
     dist_ba, _ = torch.min(dist, dim=1)
 
     if a_mask is not None:
-        dist_ab.masked_fill_(a_mask, 0)
+        dist_ab = torch.where(a_mask, torch.zeros_like(dist_ab), dist_ab)
     if b_mask is not None:
-        dist_ba.masked_fill_(b_mask, 0)
+        dist_ba = torch.where(b_mask, torch.zeros_like(dist_ba), dist_ba)
 
     loss = dist_ab.sum(1) / ((~a_mask).float().sum(1) + 1e-8) + dist_ba.sum(1) / ((~b_mask).float().sum(1) + 1e-8)
+    print(f"Loss: {loss.mean()}")
     return loss.mean()
 
 def emd_loss(a, a_mask, b, b_mask):
@@ -424,8 +432,9 @@ class SetVAE(pl.LightningModule):
 
     def bottom_up(self, x, x_mask):
         x = self.input_proj(x)
-
+        check_for_all_nan(x, "input_proj")
         x = self.pre_encoder(x, x_mask)
+        check_for_all_nan(x, "pre_encoder")
         features = []
         for layer in self.encoder:
             x, h, _, _ = layer(x, x_mask)
@@ -435,6 +444,7 @@ class SetVAE(pl.LightningModule):
     def top_down(self, cardinality, bottom_up_h):
         o, o_mask = self.init_set(cardinality)
         o = self.pre_decoder(o, o_mask)
+        check_for_all_nan(o, "pre_decoder")
         kls = []
         posteriors = []
         for idx, layer in enumerate(self.decoder):
@@ -445,14 +455,19 @@ class SetVAE(pl.LightningModule):
             kls.append(kl)
             posteriors.append((z, mu2, logvar2))
         o = self.post_decoder(o, o_mask)
-     
+        check_for_all_nan(o, "post_decoder")
         o = self.output_proj(o)
+        check_for_all_nan(o, "output_proj")
         return {'set': o, 'set_mask': o_mask, 'kls': kls, 'posteriors': posteriors}
 
     def forward(self, x, x_mask):
       
         features = self.bottom_up(x, x_mask)
+        for feature in features:
+            check_for_all_nan(feature, "feature")
         output = self.top_down((~x_mask).sum(-1), list(reversed(features)))
+        check_for_all_nan(output['set'], "output['set']")
+        print(f"Output shape is {output['set'].shape}")
         return output
 
     def training_step(self, batch, batch_idx):
@@ -512,4 +527,12 @@ class SetVAE(pl.LightningModule):
         output_set, output_mask, kls = output['set'], output['set_mask'], output['kls']
         filename = f'Results/{self.experiment_name}/{self.current_epoch}.svg'
         draw(self.format, self.sample_size, filename, output_set)
+    
+    def on_before_optimizer_step(self, optimizer, optimizer_idx):
+        for name, param in self.named_parameters():
+            if param.grad is not None:
+                norms = torch.norm(param.grad, p=2)
+                print(f"Gradient norm is {norms} for param {name}")
+                
+
         

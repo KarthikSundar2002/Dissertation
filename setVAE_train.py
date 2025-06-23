@@ -17,7 +17,7 @@ train_path = '10k_512.pt'
 val_path = '10k_val.pt'
 
 
-learning_rate = 2e-4
+learning_rate = 1e-5
 size = 512
 BATCH_SIZE = 32
 hidden_size = 4096
@@ -53,8 +53,8 @@ if not os.path.exists("Results/{}".format(experiment_name)):
 if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
         os.makedirs("/scratch/ks02450/Models/{}".format(experiment_name))
 
-model = SetVAE(input_dim=dim_in, hidden_dim=8, max_outputs=512, z_scales=[256,128,64,32,32], experiment_name=experiment_name)
-torch.autograd.set_detect_anomaly(True)
+model = SetVAE(input_dim=dim_in, hidden_dim=8, max_outputs=512, z_scales=[256,128,64,32,32], experiment_name=experiment_name, lr=learning_rate)
+
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=None, max_epochs=-1,
                     check_val_every_n_epoch=100, enable_progress_bar=True, profiler="simple",
                     callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True)
