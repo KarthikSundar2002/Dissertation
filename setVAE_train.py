@@ -19,7 +19,7 @@ val_path = '10k_val.pt'
 
 learning_rate = 1e-4
 size = 512
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 hidden_size = 4096
 samples = 1000
 steps = 200
@@ -54,10 +54,10 @@ if not os.path.exists("Results/{}".format(experiment_name)):
 if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
         os.makedirs("/scratch/ks02450/Models/{}".format(experiment_name))
 
-model = SetVAE(input_dim=dim_in, hidden_dim=128, max_outputs=512, z_scales=[256,128,64,32,32], experiment_name=experiment_name, lr=learning_rate)
+model = SetVAE(input_dim=dim_in,n_mixtures=1, hidden_dim=8, max_outputs=512, z_scales=[256,128,64,32,32], experiment_name=experiment_name, lr=learning_rate)
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=None, max_epochs=-1,
-                    check_val_every_n_epoch=100, enable_progress_bar=True, profiler="simple",
+                    check_val_every_n_epoch=1, enable_progress_bar=True, profiler="simple",
                     callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True, gradient_clip_val=1.0)
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 	
