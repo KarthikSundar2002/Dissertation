@@ -1,8 +1,8 @@
 import wandb
 from Data_Set  import  my_collate, Tensor
-from networks.model.models import MLP, srm
-# from networks.model.srm import SRM as srm
-from networks.model.set_transformer import SetTransformer
+from networks.model.new_srm_mlp import MLP
+from networks.model.new_srm import SRM as srm
+from networks.model.set_transformer_encoder import SetTransformerEncoder
 import torch
 from torch.utils.data import DataLoader
 import os
@@ -13,17 +13,17 @@ from diffusers import DDIMScheduler, DDPMScheduler
 from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-experiment_name = 'SRM-New-Train-Anime'
+experiment_name = 'SRM-New-Train-Joint-Anime-1img'
 format_path = 'format.svg'
-train_path = '10k_512.pt'
-val_path = '10k_512.pt'
+train_path = 'val.pt'
+val_path = 'val.pt'
 
 
 learning_rate = 2e-4
-size = 512
+size = 285      #258
 BATCH_SIZE = 32
 hidden_size = 4096
-samples = 512
+samples = 285  #258
 steps = 200
 sample_steps = 30
 beta_schedule = 'linear'
@@ -56,13 +56,13 @@ decoder = MLP(
         time_emb= "sinusoidal",
         input_emb = "sinusoidal")
 
-encoder = SetTransformer(
+encoder = SetTransformerEncoder(
         dim_input=dim_in,
         num_outputs=1,
         dim_output=256,
         num_inds=32,
-        dim_hidden=256,
-        num_heads=16,
+        dim_hidden=8,
+        num_heads=4,
         ln=True)
 
 if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):

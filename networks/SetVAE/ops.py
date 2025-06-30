@@ -37,7 +37,7 @@ def check(x):
     assert not (isinf or isnan), f"Tensor of shape [{x.shape}] is isinf:{isinf} or isnan:{isnan}"
 
 
-def get_module(gpu, module):
+def get_module(module):
     if hasattr(module, 'module'):
         return module.module
     else:

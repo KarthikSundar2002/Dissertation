@@ -1,35 +1,46 @@
-import torch
 import torch.nn as nn
+import math
+from .fiblat import sphere_lattice
+import torch.distributions as D
+import torch.nn.functional as F
+import torch
+from .ops import get_mask, sample_mask, get_pairwise_distance, masked_fill
+
 
 class InitialSet(nn.Module):
-    def __init__(self)
+    """
+    Basically the Prior Distribution of the setVAE.
+    """
+    def __init__(self, dim_seed, n_mixtures, dim_out, max_outputs, train_gmm):
         super().__init__()
         self.dim_seed = dim_seed
         self.n_mixtures = n_mixtures
         self.dim_out = dim_out
         self.max_outputs = max_outputs
-        self.fixed_gmm = fixed_gmm 
         self.train_gmm = train_gmm
-        self.tau = 1.
-        self.register = self.register_parameter if train_gmm else self.register_buffer
 
-        if n_mixtures == 1:
-            self.register('mu', nn.Parameter(torch.randn(1,1,dim_seed))
-            self.register('logvar', nn.Parameter(torch.randn(1,1,dim_seed)))
-            nn.init.xavier_normal_(self.mu)
-            nn.init.xavier_normal_(self.logvar)
-        elif fixed_gmm:
-            logits, mu, sig = self.get_mixture_parameters(n_mixtures, dim_seed)
-            self.register('logits', nn.Parameter(logits))
-            self.register('mu', nn.Parameter(mu))
-            self.register('sig', nn.Parameter(sig))
+        self.tau = 1.0
+
+        self.register = self.register_parameter if self.train_gmm else self.register_buffer
+
+        if self.n_mixtures == 1:
+            self.register('mu', nn.Parameter(torch.randn(1, 1, dim_seed)))  # [1, 1, Ds]
+            self.register('logvar', nn.Parameter(torch.randn(1, 1, dim_seed)))  # [1, 1, Ds]
+            nn.init.xavier_uniform_(self.mu)
+            nn.init.xavier_uniform_(self.logvar)
+        elif not self.train_gmm:
+            logits,mu,sig = self.get_mixture_params(n_mixtures, dim_seed)
+            self.register('logits', logits)
+            self.register('mu', mu)
+            self.register('sig', sig)
         else:
             self.register('logits', nn.Parameter(torch.ones(n_mixtures,)))
-            self.register('mu', nn.Parameter(torch.ones(n_mixtures,dim_seed)))
-            self.register('sig', nn.Parameter(torch.ones(n_mixtures,dim_seed)))
-        
+            self.register('mu', nn.Parameter(torch.randn(n_mixtures, dim_seed)))
+            self.register('sig', nn.Parameter(torch.randn(n_mixtures, dim_seed).abs() / math.sqrt(n_mixtures)))
+            #TODO: Maybe add xavier init to logits, mu and sig
+        print(f"dim_seed: {dim_seed}, dim_out: {dim_out}")
         self.output = nn.Linear(dim_seed, dim_out)
-    
+
     @staticmethod
     def get_mixture_parameters(n_mixtures, dim_seed, downscale=10., eps=1e-3):
         logits = torch.ones(n_mixtures,)  # [N,]
@@ -39,15 +50,8 @@ class InitialSet(nn.Module):
         s = get_pairwise_distance(mu)[tril].min().item() / downscale  # this is empirical
         sig = torch.ones(n_mixtures, dim_seed) * (s + eps)  # [N, D]
         return logits, mu, sig
-
+    
     def forward(self, output_sizes, hold_seed=None, hold_initial_set=False):
-        """
-        Sample from prior
-        :param output_sizes: Tensor([B,])
-        :param hold_seed
-        :param hold_initial_set
-        :return: Tensor([B, N, D])
-        """
         bsize = output_sizes.shape[0]
         if hold_initial_set:  # [B, N]
             x_mask = get_mask(output_sizes, self.max_outputs)
@@ -145,7 +149,9 @@ class ResidualAttention(nn.Module):
         :return: Tensor([B, N, C]), possibly with Tensor([H, B, N, M])
         """
         x = masked_fill(x.clone(), x_mask, 0.)
+        #print(f"x in ResidualAttention: {x.shape}")
         y = masked_fill(y.clone(), y_mask, 0.)
+        #print(f"y in ResidualAttention: {y.shape}")
         q = self.fc_q(x)  # [B, N, Dv]
         k = self.fc_k(y)  # [B, M, Dv]
         v = self.fc_v(y)  # [B, M, Dv]
@@ -193,8 +199,14 @@ class AttentiveBlock(nn.Module):
         :param x_mask: BoolTensor([B, N])
         :return: Tensor([B, N, D]), Tensor([B, K, D]), Tuple(Tensor([H, B, N, M]), Tensor([H, B, N, M]))
         """
+        print(f"x in AttentiveBlock: {x.shape}")
+        print(f"x_mask in AttentiveBlock: {x_mask.shape}")
         h, alpha1 = self.project(x, x_mask)
+        print(f"h in AttentiveBlock: {h.shape}")
+        print(f"alpha1 in AttentiveBlock: {alpha1.shape}")
         o, alpha2 = self.broadcast(h, x, x_mask)
+        print(f"o in AttentiveBlock: {o.shape}")
+        print(f"alpha2 in AttentiveBlock: {alpha2.shape}")
         return o, h, alpha1, alpha2
 
 
@@ -206,3 +218,5 @@ class ISAB(AttentiveBlock):
         h, alpha1 = self.project(x, x_mask)
         o, alpha2 = self.broadcast(h, x, x_mask)
         return o
+
+

@@ -21,14 +21,17 @@ class MLP(nn.Module):
 
         self.time_mlp = PositionalEmbedding(emb_size, time_emb)
 
-        concat_size = emb_size + 42
-
+        concat_size = 31*emb_size + 256
+        
         layers = [nn.Linear(concat_size, hidden_size),nn.LayerNorm(hidden_size), nn.GELU()]
         attention_size = 64
         for _ in range(hidden_layers):
             layers.append(l_Block(hidden_size))
         layers.append(nn.Linear(hidden_size,attention_size))
-        
+        pos_embs = []
+        for i in range(30):
+            pos_embs.append(PositionalEmbedding(emb_size, input_emb))
+        self.pos_embs = nn.ModuleList(pos_embs)
         self.joint_mlp = nn.Sequential(*layers)
         self.query = nn.Linear(attention_size,attention_size)
         self.key = nn.Linear(attention_size,attention_size)
@@ -41,28 +44,35 @@ class MLP(nn.Module):
     def forward(self, x, t):
         # x shape: [Batch, 512, 262]
         # t shape: [Batch]
-        # print(f"x shape {x.shape}")
+        print(f"x shape {x.shape}")
         # print(f"t shape {t.shape}")
         t_emb = self.time_mlp(t) #[Batch, 64]
         # print(f"t_emb shape {t_emb.shape}")
         t_emb = t_emb.unsqueeze(1).repeat(1, x.shape[1], 1) #[Batch, 512, 64]
         # print(f"t_emb shape {t_emb.shape}")
-        x = torch.cat((x, t_emb), dim=-1) #[Batch, 512, 326]
-        # print(f"x shape {x.shape}")
+        x,c = torch.split(x,[30,256],dim=-1)
+        pos_emb_out = []
+        for i in range(30):
+            pos_emb_out.append(self.pos_embs[i](x[:,:,i]))
+        x = torch.cat((t_emb,*pos_emb_out,c),dim=-1)
+
+        # x = torch.cat((x, t_emb), dim=-1) #[Batch, 512, 326]
+        print(f"x shape {x.shape}")
+
         x = self.joint_mlp(x) #[Batch, 512, 256]
-        print(f"X shape {x.shape}")
+        # print(f"X shape {x.shape}")
         q = self.query(x)
-        print(f"Q shape {q.shape}")
+        # print(f"Q shape {q.shape}")
         k = self.key(x)
-        print(f"K shape {k.shape}")
+        # print(f"K shape {k.shape}")
         v = self.value(x)
-        print(f"V shape {v.shape}")
+        # print(f"V shape {v.shape}")
         weight = torch.matmul(q,k.transpose(-1,-2))
-        print(f"Weight shape {weight.shape}")
+        # print(f"Weight shape {weight.shape}")
         qk = self.softmax(weight/q.shape[-1]**0.5)
-        print(f"QK shape {qk.shape}")
+        # print(f"QK shape {qk.shape}")
         x = torch.matmul(qk,v)
-        print(f"X shape {x.shape}")
+        #print(f"X shape {x.shape}")
         # print(f'x shape{x.shape}')
         x = self.output_layer(x)
         return x

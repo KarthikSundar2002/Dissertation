@@ -18,12 +18,12 @@ class SetTransformerEncoder(nn.Module):
         #     SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
         # )
         
-        # self.linear_mu = n.Linear(dim_hidden, dim_output)
+        # self.linear_mu = nn.Linear(dim_hidden, dim_output)
         # self.linear_sigma = nn.Linear(dim_hidden, dim_output)
         
         # self.N = torch.distributions.Normal(0, 1)
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print(f"device in set transformer: {self.device}")
+        # self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # print(f"device in set transformer: {self.device}")
         # self.N.loc = self.N.loc.to(self.device)
         # self.N.scale = self.N.scale.to(self.device)
 

@@ -31,7 +31,6 @@ def process_drawing(drawing):
     return strokes
 
 def main():
-    drawings = []
     with open(NDJSON_FILE, 'r') as f:
         for line in f:
             try:
@@ -40,13 +39,16 @@ def main():
                 # Only include drawings with exactly NUM_STROKES strokes
                 if len(drawing) != NUM_STROKES:
                     continue
+                # Process just the first valid drawing
                 processed = process_drawing(drawing)
-                drawings.append(processed)
+                # Convert to numpy array with shape (1, NUM_STROKES, NUM_POINTS*2)
+                drawing_np = np.array([processed], dtype=np.float32)
+                torch.save(torch.from_numpy(drawing_np), PT_FILE)
+                print(f"Saved first drawing to {PT_FILE}")
+                return  # Exit after processing the first drawing
             except Exception:
                 continue
-    drawings_np = np.array(drawings, dtype=np.float32)  # (N, 5, 34)
-    torch.save(torch.from_numpy(drawings_np), PT_FILE)
-    print(f"Saved {len(drawings)} drawings to {PT_FILE}")
+    print("No valid drawings found")
 
 if __name__ == "__main__":
     main() 
