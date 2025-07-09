@@ -1,10 +1,10 @@
 import torch.nn as nn
-from .modules import DeterministicNetwork, EncoderBlock, DecoderBlock
+# from .modules import DeterministicNetwork, EncoderBlock, DecoderBlock
 import pytorch_lightning as L
-from .layers import InitialSet
+# from .layers import InitialSet
 import torch
-from .criterion import ChamferCriterion, L2Criterion
-from .ops import get_module
+# from .criterion import ChamferCriterion
+# from .ops import get_module
 from utils import draw
 
 class SetVAE(L.LightningModule):
@@ -168,7 +168,7 @@ class SetVAE(L.LightningModule):
     
 
     def training_step(self, batch, batch_idx):
-        criterion = L2Criterion(self.args)
+        criterion = ChamferCriterion(self.args)
         x, x_mask = batch
         output = self(x, x_mask)
 
@@ -178,7 +178,6 @@ class SetVAE(L.LightningModule):
         self.log('train_loss', loss)
         self.log('train_kl_loss', kl_loss)
         self.log('train_l2_loss', l2_loss)
-        return loss
         #self.log('train_topdown_kl', topdown_kl)
         #self.log('train_beta', beta)
     

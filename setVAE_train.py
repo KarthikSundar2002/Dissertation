@@ -13,17 +13,17 @@ from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoi
 device = "cuda" if torch.cuda.is_available() else "cpu"
 experiment_name = 'SetVAE train'
 format_path = 'format.svg'
-train_path = '10k_512.pt'
+train_path = '10k_512_inv.pt'
 val_path = '10k_val.pt'
 
-BATCH_SIZE = 256
-dim_in = 6
-learning_rate = 1e-4
+BATCH_SIZE = 32
+dim_in = 6 
+learning_rate = 1e-5
 torch.autograd.set_detect_anomaly(True)
 #Add WB key here
-# wand_b_key = '117905e69dff43b1635103618ba74a5593104105'
-# wandb.login(key=wand_b_key)
-# wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir='/scratch/ks02450')
+wand_b_key = '117905e69dff43b1635103618ba74a5593104105'
+wandb.login(key=wand_b_key)
+wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir='/scratch/ks02450')
 train_set = Tensor(train_path)
 val_set = Val_Dataset(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, pin_memory=True)
@@ -79,7 +79,7 @@ class ModelConfig:
 model_args = ModelConfig(
     input_dim=dim_in,
     n_mixtures=1,
-    hidden_dim=32,
+    hidden_dim=128,
     z_dim=32,
     max_outputs=512,
     z_scales=[128, 64, 32, 32],
@@ -91,9 +91,9 @@ model_args = ModelConfig(
     i_net='set_transformer',
     i_net_layers=2,
     d_net='set_transformer',
-    enc_in_layers=0,
-    dec_in_layers=0,
-    dec_out_layers=0,
+    enc_in_layers=2,
+    dec_in_layers=2,
+    dec_out_layers=2,
     isab_inds=16,
     ln=True,
     dropout_p=0.,
@@ -102,15 +102,15 @@ model_args = ModelConfig(
     residual=False,
     optimizer='adam',
     lr=learning_rate,
-    beta=1.0,
+    beta=0.0,
     sample_size=512,
     experiment_name=experiment_name
 )
 
 model = SetVAE(model_args)
 
-trainer = L.Trainer(accelerator='gpu', devices=1, strategy='auto' ,logger=None, max_epochs=-1,
-                    check_val_every_n_epoch=200, enable_progress_bar=True, profiler="simple",
-                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True, gradient_clip_val=1.0)
+trainer = L.Trainer(accelerator='gpu', devices=1, strategy='auto' ,logger=wandb_logger, max_epochs=-1,
+                    check_val_every_n_epoch=10, enable_progress_bar=True, profiler="simple",
+                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True, gradient_clip_val=0.5, gradient_clip_algorithm='norm')
 trainer.fit(model=model, train_dataloaders=train_loader, val_dataloaders=val_loader)
 	

@@ -116,3 +116,53 @@ def draw_points_svg(filename, drawing, num_strokes=5, num_points=17):
     plt.axis('off')
     plt.savefig(filename, format='svg', bbox_inches='tight')
     plt.close()
+
+def tensor_to_svg(tensor, filename=None, size=256):
+    """
+    Convert a tensor of shape [N, 7] (or [num_images, N, 7]) back to an SVG string or file.
+    If filename is provided, saves the SVG to that file.
+    """
+    import numpy as np
+    if isinstance(tensor, torch.Tensor):
+        tensor = tensor.cpu().numpy()
+    if tensor.ndim == 3:  # batch mode
+        results = []
+        for i, t in enumerate(tensor):
+            fname = None
+            if filename is not None:
+                fname = filename.replace('.svg', f'_{i}.svg')
+            results.append(tensor_to_svg(t, fname, size))
+        return results
+
+    svg_elements = []
+    for row in tensor:
+        if np.all(row == -1):
+            continue
+        cmd_type = int(row[6])
+        vals = row[:6]
+        if cmd_type == 0:  # path
+            # Interpret as a move-to and cubic bezier if enough points, else as a polyline
+            if np.count_nonzero(vals != -1) >= 6:
+                d = f'M {vals[0]*size/2+size/2} {vals[1]*size/2+size/2} C {vals[2]*size/2+size/2} {vals[3]*size/2+size/2} {vals[4]*size/2+size/2} {vals[5]*size/2+size/2} {vals[4]*size/2+size/2} {vals[5]*size/2+size/2}'
+            else:
+                # fallback: just move to the first point
+                d = f'M {vals[0]*size/2+size/2} {vals[1]*size/2+size/2}'
+            svg_elements.append(f'<path d="{d}" fill="none" stroke="black" stroke-width="2"/>')
+        elif cmd_type == 1:  # circle
+            cx = vals[0]*size/2+size/2
+            cy = vals[1]*size/2+size/2
+            r = abs(vals[2]*size/2)
+            svg_elements.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="red" stroke-width="2"/>')
+        elif cmd_type == 2:  # rect
+            x = vals[0]*size/2+size/2
+            y = vals[1]*size/2+size/2
+            w = abs(vals[2]*size/2)
+            h = abs(vals[3]*size/2)
+            svg_elements.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" fill="none" stroke="blue" stroke-width="2"/>')
+        # Add more types if needed
+
+    svg_str = f'<svg width="{size}" height="{size}" xmlns="http://www.w3.org/2000/svg">' + ''.join(svg_elements) + '</svg>'
+    if filename is not None:
+        with open(filename, 'w') as f:
+            f.write(svg_str)
+    return svg_str

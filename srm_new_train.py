@@ -1,7 +1,7 @@
 import wandb
 from Data_Set  import  my_collate, Tensor
-from networks.model.models import MLP, srm
-# from networks.model.srm import SRM as srm
+from networks.model.srm_mlp import MLP
+from networks.model.srm import SRM as srm
 from networks.model.set_transformer import SetTransformer
 import torch
 from torch.utils.data import DataLoader
@@ -15,19 +15,19 @@ from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoi
 device = "cuda" if torch.cuda.is_available() else "cpu"
 experiment_name = 'SRM-New-Train-Anime'
 format_path = 'format.svg'
-train_path = '10k_512.pt'
-val_path = '10k_512.pt'
+train_path = 'shapes.pt'
+val_path = 'shapes.pt'
 
 
 learning_rate = 2e-4
-size = 512
-BATCH_SIZE = 32
+size = 7350
+BATCH_SIZE = 1
 hidden_size = 4096
-samples = 512
+samples = 7350
 steps = 200
 sample_steps = 30
 beta_schedule = 'linear'
-dim_in = 6
+dim_in = 7
 gpu_num = 1
 
 #Add WB key here
@@ -59,6 +59,7 @@ decoder = MLP(
 encoder = SetTransformer(
         dim_input=dim_in,
         num_outputs=1,
+        num_inputs=size,
         dim_output=256,
         num_inds=32,
         dim_hidden=256,
