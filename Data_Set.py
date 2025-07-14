@@ -17,7 +17,7 @@ class Tensor(Dataset):
 class Val_Dataset(Dataset):
     def __init__(self, path):
         self.data = torch.load(path)
-        self.data = self.data[:1]
+        # self.data = self.data[:1]
     
     def __len__(self):
         return len(self.data)
