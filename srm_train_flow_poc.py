@@ -61,18 +61,22 @@ encoder = SetTransformer(
         emb_size=64,
         ln=True)
 
-if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):
-        os.makedirs("/scratch/ks02450/Results/{}".format(experiment_name))
+# if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):
+#         os.makedirs("/scratch/ks02450/Results/{}".format(experiment_name))
 
-if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
-        os.makedirs("/scratch/ks02450/Models/{}".format(experiment_name))
+# if not os.path.exists("/scratch/ks02450/Models/{}".format(experiment_name)):
+#         os.makedirs("/scratch/ks02450/Models/{}".format(experiment_name))
+
+if not os.path.exists("./{}".format(experiment_name)):
+        os.makedirs("./{}".format(experiment_name))
 
 sample_steps = list(range(sample_steps))
 srm = srm(encoder, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate, weight_mse=1.0)
 # weights = torch.load("seTlatent899.ckpt", weights_only=False)['state_dict']
 # weights = {k.replace("encoder.", ""): v for k, v in weights.items() if k.startswith("encoder.")}
 # encoder.load_state_dict(weights)
-srm.load_state_dict(torch.load("7000.ckpt", weights_only=False)["state_dict"])
+# srm.load_state_dict(torch.load("7000.ckpt", weights_only=False)["state_dict"])
+srm = torch.compile(srm)
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs=-1,
                     check_val_every_n_epoch=100, enable_progress_bar=True, profiler="simple",

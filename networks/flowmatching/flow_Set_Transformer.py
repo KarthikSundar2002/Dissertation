@@ -113,7 +113,7 @@ class SRM(L.LightningModule):
         #mask = self.encoder.compute_mask(Output,t)
         #mask = F.threshold(mask,0.5,0.0)
         #Output = Output * mask
-        filename = f'/scratch/ks02450/Results/{self.experiment_name}/{self.current_epoch}.svg'
+        filename = f'./{self.experiment_name}/{self.current_epoch}.svg'
 
         draw(self.format, self.sample_size, filename, Output)
 

@@ -73,7 +73,7 @@ srm = srm(encoder, experiment_name, samples, sample_steps, format_path, size,dim
 # weights = {k.replace("encoder.", ""): v for k, v in weights.items() if k.startswith("encoder.")}
 # encoder.load_state_dict(weights)
 #srm.load_state_dict(torch.load("7000.ckpt", weights_only=False)["state_dict"])
-
+srm = torch.compile(srm)
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs=-1,
                     check_val_every_n_epoch=100, enable_progress_bar=True, profiler="simple",
                     callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback, lr_monitor], benchmark=True)
