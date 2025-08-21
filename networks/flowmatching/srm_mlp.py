@@ -35,18 +35,30 @@ class MLP(nn.Module):
     def forward(self, x,t,x_mask, y):
        
         t = t.to(self.device)
+        #print(f"t.shape: {t.shape}")
+        print(f"t: {t}")
+        if t.dim() == 0:
+            t = torch.full((x.shape[0],), t, device=self.device)
+       
+        #t = t.repeat(x.shape[0],1, 1)
         #x = x * x_mask
+        #print(f"t.shape: {t.shape}")
         x_emb = []
         for i in range(self.num_embeddings):
-            input_emb = x[:, :, i]
+            input_emb = x[:, i]
             input_emb = input_emb * x_mask
             x_emb.append(self.input_mlp[i](input_emb))
         t_emb = self.time_mlp(t)
-        t_emb = t_emb.repeat(x_emb[0].shape[0], x_emb[0].shape[1], 1)
-        y = y.repeat(1,x_emb[0].shape[1],1 )
+        #print(f"t_emb.shape: {t_emb.shape}")
+        print(f"t_emb.shape: {t_emb.shape}")
+        t_emb = t_emb.repeat(x_emb[0].shape[0]//t_emb.shape[0],1)
+        y = y.repeat(x_emb[0].shape[0]//y.shape[0],1)
         print(f"x_emb[0].shape: {x_emb[0].shape}")
         print(f"t_emb.shape: {t_emb.shape}")
         print(f"y.shape: {y.shape}")
+        #print(f"x_emb[0].shape: {x_emb[0].shape}")
+        #print(f"t_emb.shape: {t_emb.shape}")
+        #print(f"y.shape: {y.shape}")
         x = torch.cat((*x_emb, t_emb, y), dim=-1)
         
         x = self.joint_mlp(x)
@@ -58,15 +70,16 @@ class MLP(nn.Module):
         #x = x * x_mask
         x_emb = []
         for i in range(self.num_embeddings):
-            input_emb = x[:, :, i]
+            input_emb = x[:, i]
             input_emb = input_emb * x_mask
             x_emb.append(self.input_mlp[i](input_emb))
         t_emb = self.time_mlp(t)
-        t_emb = t_emb.repeat(x_emb[0].shape[0], x_emb[0].shape[1], 1)
-        y = y.repeat(1,x_emb[0].shape[1],1 )
-        print(f"x_emb[0].shape: {x_emb[0].shape}")
-        print(f"t_emb.shape: {t_emb.shape}")
-        print(f"y.shape: {y.shape}")
+        #print(f"t_emb.shape: {t_emb.shape}")
+        t_emb = t_emb.repeat(x_emb[0].shape[0]//t_emb.shape[0],1)
+        y = y.repeat(x_emb[0].shape[0]//y.shape[0],1)
+        #print(f"x_emb[0].shape: {x_emb[0].shape}")
+        #print(f"t_emb.shape: {t_emb.shape}")
+        #print(f"y.shape: {y.shape}")
         x = torch.cat((*x_emb, t_emb, y), dim=-1)
         x_mask = self.mask_mlp(x)
         x_mask = x_mask.squeeze(-1)

@@ -19,7 +19,7 @@ val_path = '10k_val.pt'
 
 learning_rate = 2e-4
 size = 512
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 hidden_size = 4096
 samples = 1000
 steps = 200

@@ -1,8 +1,7 @@
 import wandb
-from Data_Set  import  my_collate, Tensor
+from Data_Set  import  my_collate, Tensor, Val_Dataset
 from networks.flowmatching.model import SRM as srm
-from networks.flowmatching.srm_mlp import MLP
-from networks.flowmatching.set_transformer import SetTransformer
+from networks.flowmatching.set_transformer_enc import SetTransformer
 import torch
 from torch.utils.data import DataLoader
 import os
@@ -10,19 +9,19 @@ import pytorch_lightning as L
 from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from diffusers import DDIMScheduler, DDPMScheduler
-from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint
+from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-experiment_name = 'SRM-New-Train-Anime-Flow'
+experiment_name = 'SRM-New-Train-Anime-Mask-Individual-Stroke'
 format_path = 'format.svg'
 train_path = '10k_512.pt'
 val_path = '10k_512.pt'
 
 
-learning_rate = 2e-4
+learning_rate = 1e-4
 size = 512
-BATCH_SIZE = 1
-hidden_size = 4096
+BATCH_SIZE = 128
+hidden_size = 1024
 samples = 512
 steps = 200
 sample_steps = 30
@@ -36,10 +35,11 @@ wandb.login(key=wand_b_key)
 wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save_dir='/scratch/ks02450')
 trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
-
+val_set = Val_Dataset(val_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, pin_memory=True)
-
+val_loader = DataLoader(val_set, BATCH_SIZE, shuffle=False, pin_memory=True)
 torch.set_float32_matmul_precision("medium")
+lr_monitor = LearningRateMonitor(logging_interval='epoch')
 
 checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
@@ -49,12 +49,6 @@ checkpoint_callback = ModelCheckpoint(
     save_on_train_epoch_end=True,
 )
 
-decoder = MLP(
-        hidden_size=hidden_size,
-        hidden_layers=6,
-        emb_size=64,
-        time_emb= "sinusoidal",
-        input_emb = "sinusoidal")
 
 encoder = SetTransformer(
         dim_input=dim_in,
@@ -76,10 +70,10 @@ scheduler = DDPMScheduler(beta_end=1e-4, beta_start=1e-5, num_train_timesteps = 
 ddim_s = DDIMScheduler(beta_end=1e-4, beta_start=1e-5, num_train_timesteps = steps, beta_schedule=beta_schedule)
 ddim_s.set_timesteps(sample_steps)
 sample_steps = list(range(sample_steps))
-srm = srm(encoder, decoder, scheduler, ddim_s, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate)
+srm = srm(encoder, decoder, scheduler, ddim_s, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate, weight_mse=100)
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs=-1,
-                    check_val_every_n_epoch=500, enable_progress_bar=True, profiler="simple",
-                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True)
-trainer.fit(model=srm, train_dataloaders=train_loader, val_dataloaders=train_loader)
+                    check_val_every_n_epoch=1, enable_progress_bar=True, profiler="simple",
+                    callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback, lr_monitor], benchmark=True)
+trainer.fit(model=srm, train_dataloaders=train_loader, val_dataloaders=val_loader)
 	

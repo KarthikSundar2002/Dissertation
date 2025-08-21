@@ -14,10 +14,40 @@ class Tensor(Dataset):
         data = self.data[idx]
         return data
 
+class OT_Dataset(Dataset):
+    def __init__(self, path, noise_path):
+        self.data = torch.load(path)
+        #self.data = self.data[:1]
+        self.noise = torch.load(noise_path)
+        #self.noise = self.noise[:1]
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        noise = self.noise[idx]
+        return data, noise
+
+class OT_Dataset_Val(Dataset):
+    def __init__(self, path, noise_path):
+        self.data = torch.load(path)
+        self.data = self.data[:1]
+        self.noise = torch.load(noise_path)
+        self.noise = self.noise[:1]
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        noise = self.noise[idx]
+        return data, noise
+
 class Val_Dataset(Dataset):
     def __init__(self, path):
         self.data = torch.load(path)
-        # self.data = self.data[:1]
+        self.data = self.data[:1]
     
     def __len__(self):
         return len(self.data)

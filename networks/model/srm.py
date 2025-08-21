@@ -27,22 +27,23 @@ class SRM(L.LightningModule):
         
         # print(f"batch is a list of length {len(batch)}")
         #batch = batch.unsqueeze(0)
-        print(f"batch is a tensor of shape {batch.shape}")
+        #print(f"batch is a tensor of shape {batch.shape}")
         # Batch is a list of length 2 - Set and Strokes
-        Set = batch
+        Set, Set_mask = batch
         print(f"Set is a tensor of shape {Set.shape}")
-        encoded, condition, mu, sigma = self.encoder(Set)
+        encoded, condition, mu, sigma = self.encoder(Set, Set_mask)
         print(f"condition is a tensor of shape {condition.shape}")
         # Decoder
         # 1 instead of 0 to use collate
-        Strokes = batch
+        Strokes, Strokes_mask = batch
         print(f"Strokes is a tensor of shape {Strokes.shape}")
         noise = torch.randn(Strokes.shape, device=self.device)
         timesteps = torch.randint(0, self.noise_scheduler.num_train_timesteps, (Strokes.shape[1],), device=self.device).long()
         noisy = self.noise_scheduler.add_noise(Strokes, noise, timesteps)
-
+        mask = self.decoder.compute_mask(Strokes, timesteps, condition, Strokes_mask)
+        mask = F.threshold(mask, 0.5, 0)
         #Train
-        noise_pred = self.decoder(noisy, timesteps, condition)
+        noise_pred = self.decoder(noisy, timesteps, condition, mask)
         print(f"noise_pred is a tensor of shape {noise_pred.shape}")
         print(f"noise is a tensor of shape {noise.shape}")
         # cd = list()
@@ -58,33 +59,33 @@ class SRM(L.LightningModule):
         #KL
         KLD = -torch.sum(1 + torch.log(sigma.pow(2)) - mu.pow(2) - sigma.pow(2))
         KLS = (1.0/100) * self.current_epoch
+        print(f"mask.shape: {mask.shape}")
+        print(f"Strokes_mask.shape: {Strokes_mask.shape}")
+        Strokes_mask = Strokes_mask.float()
+        mask = mask.squeeze(-1)
+        print(f"mask.dtype: {mask.dtype}")
+        print(f"Strokes_mask.dtype: {Strokes_mask.dtype}")
+        bce_loss = F.binary_cross_entropy(mask, Strokes_mask)
         loss_mse = F.mse_loss(noise_pred, noise)
-        loss = loss_mse
+        loss = loss_mse + bce_loss
         #loss = loss_mse + (KLS * KLD)
 
         
         # Log metrics to see in the Lightning dashboard
+        self.log("train_loss_bce", bce_loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_loss_mse", loss_mse, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_loss_kld", KLD, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("train_loss_kls", KLS, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # self.log("train_loss_kld", KLD, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        # self.log("train_loss_kls", KLS, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log("train_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        #batch = batch.unsqueeze(0)
-        
-        encoded,condition, mu, sigma = self.encoder(batch)
-       
-
-        for i in range(len(condition)):
+        #batch = batch.unsq
+        encoded,condition, mu, sigma = self.encoder(batch[0], batch[1])
+        for i in range(len(condition)): 
             filename = '/scratch/ks02450/Results/{}/{}_{}.svg'.format(self.experiment_name, self.current_epoch, i)
-            stroke = sample(self.samples, self.sample_steps, self.decoder, self.noise_scheduler_sample, mu[i], self.dim_in)
-            tensor_to_svg(stroke, filename)
-        
-        # x = batch
-        # encoded, condition, mu, sigma = self.encoder(x)
-        # filename = f'/scratch/ks02450/Results/{self.experiment_name}/{self.current_epoch}.svg'
-        # draw(self.format, self.sample_size, filename, z_out)
+            stroke = sample(self.samples, self.sample_steps, self.decoder, self.noise_scheduler_sample, mu[i], self.dim_in, batch[1])
+            draw(self.format, self.sample_size, filename, stroke)
         
 
 

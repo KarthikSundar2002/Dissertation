@@ -40,8 +40,14 @@ class SetTransformer(nn.Module):
         self.N.loc = self.N.loc.to(self.device)
         self.N.scale = self.N.scale.to(self.device)
 
-    def forward(self, X):
+    def forward(self, X, X_mask):
+        
+        # X = X.transpose(1,2)
         print(f"X.shape in set transformer: {X.shape}")
+        print(f"X_mask.shape in set transformer: {X_mask.shape}")
+        X_mask = X_mask.unsqueeze(-1)
+        X = X * X_mask
+        # X = X.transpose(1,2)
         encoded = self.enc(X)
         y = self.dec(encoded)
         print(f"y.shape in set transformer: {y.shape}")

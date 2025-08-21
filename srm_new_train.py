@@ -13,21 +13,21 @@ from diffusers import DDIMScheduler, DDPMScheduler
 from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-experiment_name = 'SRM-New-Train-Anime'
+experiment_name = 'SRM-Masked-Train-Anime'
 format_path = 'format.svg'
-train_path = 'shapes.pt'
-val_path = 'shapes.pt'
+train_path = '10k_512.pt'
+val_path = '10k_512.pt'
 
 
 learning_rate = 2e-4
-size = 7350
-BATCH_SIZE = 1
-hidden_size = 4096
-samples = 7350
+size = 512
+BATCH_SIZE = 32
+hidden_size = 1024
+samples = 512
 steps = 200
 sample_steps = 30
 beta_schedule = 'linear'
-dim_in = 7
+dim_in = 6
 gpu_num = 1
 
 #Add WB key here

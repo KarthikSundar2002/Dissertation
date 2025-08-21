@@ -12,3 +12,7 @@ output.zip
 wandb/
 .venv/
 Models/
+*.ckpt
+*.pt
+*.svg
+.vscode/
