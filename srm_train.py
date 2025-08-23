@@ -13,15 +13,15 @@ from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoi
 device = "cuda" if torch.cuda.is_available() else "cpu"
 experiment_name = 'Second Run'
 format_path = 'format.svg'
-train_path = '10k.pt'
-val_path = '10k_val.pt'
+train_path = '10k_512.pt'
+val_path = '10k_512.pt'
 
 
 learning_rate = 2e-4
 size = 512
 BATCH_SIZE = 64
-hidden_size = 4096
-samples = 1000
+hidden_size = 1024
+samples = 512
 steps = 200
 sample_steps = 30
 beta_schedule = 'linear'
@@ -35,7 +35,7 @@ wandb_logger = WandbLogger(name=experiment_name,project='Your Stroke Cloud',save
 trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 
-train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, collate_fn= my_collate, pin_memory=True)
+train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, pin_memory=True)
 
 torch.set_float32_matmul_precision("medium")
 
@@ -43,7 +43,7 @@ checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",
     save_last=True,
-    every_n_epochs=10,
+    every_n_epochs=500,
     save_on_train_epoch_end=True,
 )
 
@@ -76,7 +76,7 @@ sample_steps = list(range(sample_steps))
 srm = srm(encoder, decoder, scheduler, ddim_s, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate)
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs=-1,
-                    check_val_every_n_epoch=100, enable_progress_bar=True, profiler="simple",
+                    check_val_every_n_epoch=1, enable_progress_bar=True, profiler="simple",
                     callbacks=[StochasticWeightAveraging(swa_lrs=learning_rate),checkpoint_callback ], benchmark=True)
 trainer.fit(model=srm, train_dataloaders=train_loader)
 	

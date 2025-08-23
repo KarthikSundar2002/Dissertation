@@ -70,9 +70,9 @@ class srm(L.LightningModule):
 
     def training_step(self, batch, batch_idx, ):
         #Encoder
-        print(f"batch is a list of length {len(batch)}")
+        #print(f"batch is a list of length {len(batch)}")
         Set = batch[0]
-        encoded,condition, mu, sigma = self.encoder(Set)
+        condition, mu, sigma = self.encoder(Set)
 
         #Decoder
         #1 instead of 0 to use collate
@@ -260,13 +260,11 @@ class SetTransformer(L.LightningModule):
 
 
     def forward(self, X):
-         print("Hi")
-         print(X.size())
          y = self.dec(self.enc(X))
          mu = self.linear_mu(y)
          sigma = torch.exp(self.linear_sigma(y))
          z = mu + sigma * self.N.sample(mu.shape).to(self.device)
-         return z, mu, sigma
+         return y, mu, sigma
 
 
 

@@ -49,27 +49,19 @@ def filter(stroke):
 
 def draw(format_path, size, filename, stroke):
     template = format(format_path)
-    # print(f"stroke.shape: {stroke.shape}")
     stroke = stroke[0,:,:]
-    #stroke = stroke[0:512,:]
-
     data = filter(stroke)
     svg = Rebuild(data, template, size, size / 128)
     save(svg, size, filename)
 
-def sample(samples, steps, model, noise_scheduler, condition, dim_in, stroke_mask):
+def sample(samples, steps, model, noise_scheduler, condition, dim_in):
     stroke = torch.randn(1, samples, dim_in).to(device)
     c = condition[0,:]
     for i, t in enumerate(steps):
         t = torch.full((samples,), t, dtype=torch.long).to(device)
-        mask = model.compute_mask(stroke, t, c, stroke_mask[0,:])
         with torch.no_grad():
             with torch.amp.autocast(device_type='cuda', dtype=torch.float16):
-                print(stroke.shape)
-                print(t.shape)
-                print(c.shape)
-                print(mask.shape)
-                residual = model(stroke, t, c, mask)
+                residual = model(stroke, t, c)
                 
                 stroke = noise_scheduler.step(residual, t[0], stroke)[0]
 

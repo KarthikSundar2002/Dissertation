@@ -14,9 +14,9 @@ from tqdm import tqdm
 device = "cuda" if torch.cuda.is_available() else "cpu"
 experiment_name = 'MLP Set Transformer Mask 1024 Hidden Dim Sinkhorn OT'
 format_path = 'format.svg'
-train_path = '18k_600.pt'
+train_path = '10k_512.pt'
 val_path = '10k_512.pt'
-noise_path = 'result_noise_hungarian_18k_600.pt'
+noise_path = 'masked_noise_hungarian_10k_512.pt'
 
 learning_rate = 2e-4
 size = 512
@@ -47,7 +47,7 @@ encoder = SetTransformer(
         emb_size=64,
         ln=True)
 
-ckpt_path = "/scratch/ks02450/Models/MLP Hungarian Preprocessed OT Set Latent 18k 600 No Mask/epoch=10099-global_step=0.ckpt"
+ckpt_path = "/scratch/ks02450/Models/MLP Hungarian Preprocessed OT Set Latent 1024 Dim MLP 10k 512 No Mask/epoch=6999-global_step=0.ckpt"
 sample_steps = list(range(sample_steps))
 srm = SRM(encoder, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate, weight_mse=1.0)
 srm.load_state_dict(torch.load(ckpt_path, weights_only=False)["state_dict"])
@@ -57,8 +57,8 @@ srm.load_state_dict(torch.load(ckpt_path, weights_only=False)["state_dict"])
 srm.eval()
 srm.to(device)
 solver = ODESolver(srm.encoder)
-num_of_strokes = 600
-x_0 = torch.randn((1,600,6), device="cuda")
+num_of_strokes = 512
+x_0 = torch.randn((1,512,6), device="cuda")
 #Strokes_mask = torch.ones((1,num_of_strokes,1), device="cuda")
 #mask_zeros = torch.zeros((1,512-num_of_strokes,1), device="cuda")
 #Strokes_mask = torch.cat((Strokes_mask, mask_zeros), dim=1)
@@ -75,13 +75,15 @@ for i, (Strokes,x_0) in enumerate(tqdm(train_dataset)):
     x_0 = x_0.unsqueeze(0)
     #x_0 = x_0 * mask
     time_grid = torch.tensor([0.0,1.0],device="cuda")
-    Output = solver.sample(x_0,0.001,"euler",1e-5,1e-5,time_grid,False,False) 
+    Output = solver.sample(x_0,0.001,"euler",1e-5,1e-5,time_grid,False,False)
+
     draw(format_path, size, f'output{i}.svg', Output)
+    draw(format_path, size, f'output_Strokes{i}.svg', Strokes[0].unsqueeze(0))
     break
 #     draw(format_path, size, f'output_Strokes.svg', Strokes[0].unsqueeze(0))
 
 # time_grid = torch.tensor([0.0,1.0],device="cuda")
-# Output = solver.sample(x_0,0.001,"euler",1e-5,1e-5,time_grid,False,False) 
+# Output = solver.sample(x_0,0.0005,"euler",1e-5,1e-5,time_grid,False,False) 
 # t = torch.tensor([1.0],device="cuda")
 #for i in range(len(Output)):
     #mask = srm.encoder.compute_mask(Output[i],t)

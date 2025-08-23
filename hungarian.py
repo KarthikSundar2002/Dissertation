@@ -6,19 +6,26 @@ from geomloss import SamplesLoss
 from tqdm import tqdm
 from scipy.optimize import linear_sum_assignment
 # Create two distributions with different numbers of samples
-train_set = Tensor('10k_512.pt')
-BATCH_SIZE = 10093
+train_set = Tensor('18k_600.pt')
+BATCH_SIZE = 18620
 device = "cuda" if torch.cuda.is_available() else "cpu"
 device = "cpu"
-
+print(len(train_set))
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True, pin_memory=True)
 loss_fn = SamplesLoss(loss="sinkhorn", p=2, blur=0.05)
 print(train_set.data[0][0].shape)
-result_noise = torch.randn((10093,512,6), device=device)
+result_noise = torch.randn((18620,600,6), device=device)
 # optimizer = torch.optim.Adam([result_noise], lr=0.1)
+
 for idx, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc="Batches"):
     Strokes, Strokes_mask = batch
     Strokes = Strokes.to(device)
+    Strokes_mask = Strokes_mask.to(device)
+    Strokes_mask = Strokes_mask.unsqueeze(-1)
+   # Strokes = Strokes.transpose(1,2)
+    print(f"Strokes.shape: {Strokes.shape}")
+    print(f"Strokes_mask.shape: {Strokes_mask.shape}")
+    Strokes = Strokes * Strokes_mask
     noise = result_noise[idx:idx+Strokes.shape[0]]
     cost_matrix = torch.cdist(noise, Strokes, p=1)
     for i in tqdm(range(cost_matrix.shape[0]), total=cost_matrix.shape[0], desc="Rows"):
@@ -29,6 +36,6 @@ for idx, batch in tqdm(enumerate(train_loader), total=len(train_loader), desc="B
         # if i % 10 == 0:
         #     print(f"Loss: {loss.item()}")
 
-torch.save(result_noise, 'result_noise_hungarian_10k_512.pt')
+torch.save(result_noise, 'masked_noise_hungarian_18k_600.pt')
    
     

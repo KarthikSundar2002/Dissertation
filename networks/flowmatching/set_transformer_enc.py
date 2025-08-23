@@ -46,7 +46,7 @@ class SetTransformer(nn.Module):
         self.enc = nn.Sequential(
             ISAB(dim_input, dim_hidden, num_heads, num_inds, ln=ln),
             ISAB(dim_hidden, dim_hidden, num_heads, num_inds, ln=ln),
-            #SAB(dim_hidden, dim_hidden, num_heads, ln=ln),  # Not Present in the First Run titled "Flow Set Transformer Encoder POC"
+            SAB(dim_hidden, dim_hidden, num_heads, ln=ln),  # Only used in the final Run
             #SAB(dim_hidden, dim_output, 2, num_inds, ln=ln),
         )
 
@@ -61,11 +61,11 @@ class SetTransformer(nn.Module):
         #     nn.Conv1d(dim_hidden*2, dim_hidden*2, kernel_size=3, padding=1),
         # )
 
-        self.dec = nn.Sequential(
-            PMA(dim_hidden, num_heads, num_outputs, ln=ln),
-            SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
-            SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
-        )
+        # self.dec = nn.Sequential(
+        #     PMA(dim_hidden, num_heads, num_outputs, ln=ln),
+        #     SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+        #     SAB(dim_hidden, dim_hidden, num_heads, ln=ln),
+        # )
 
         # self.linear_mu = nn.Linear(dim_hidden, dim_hidden)
         # self.linear_sigma = nn.Linear(dim_hidden, dim_hidden)
@@ -73,7 +73,7 @@ class SetTransformer(nn.Module):
         # self.N.loc = self.N.loc.to(self.device)
         # self.N.scale = self.N.scale.to(self.device)
 
-        dim_mlp_hidden = 4096
+        dim_mlp_hidden = 1024
         layers = []
         layers.append(nn.Linear(concat_size + dim_hidden, dim_mlp_hidden))
         for i in range(6):

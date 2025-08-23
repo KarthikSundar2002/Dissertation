@@ -5,7 +5,7 @@ import random
 import numpy as np
 class Tensor(Dataset):
     def __init__(self, path):
-        self.data = torch.load(path)
+        self.data = torch.load(path) 
 
     def __len__(self):
         return len(self.data)
