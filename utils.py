@@ -15,16 +15,23 @@ def format(x):
 def Rebuild(Vectors, template, size, stroke_thickness):
     svg = []
     for i in Vectors:
-        template[3] = str(i[0] * size) + ','
-        template[4] = str(i[1] * size)
-        template[6] = str(i[2] * size) + ','
-        template[7] = str(i[3] * size) + ','
-        template[8] = str(i[4] * size) + ','
-        template[9] = str(i[5] * size)
-        template[16] = 'stroke-width="' + str(stroke_thickness) + '"/>\n  '
+        v0 = i[0] * size
+        v1 = i[1] * size
+        v2 = i[2] * size
+        v3 = i[3] * size
+        v4 = i[4] * size
+        v5 = i[5] * size
+        
+        template[3] = str(v0) + ','
+        template[4] = str(v1)
+        template[6] = str(v2) + ','
+        template[7] = str(v3) + ','
+        template[8] = str(v4) + ','
+        template[9] = str(v5)
+        template[16] = 'stroke-width="' + str(stroke_thickness) + '"/>' + '\n  '
 
         #Variable stroke width option
-        # template[16] = 'stroke-width="' + str(i[6]) + '"/>\n  '
+        # template[16] = 'stroke-width="' + str(i[6]) + '"/>' + '\n  '
         svg.append(bytes(' '.join(template), 'utf-8'))
     return svg
 
@@ -49,6 +56,7 @@ def filter(stroke):
 
 def draw(format_path, size, filename, stroke):
     template = format(format_path)
+    print(f"template: {template}")
     stroke = stroke[0,:,:]
     data = filter(stroke)
     svg = Rebuild(data, template, size, size / 128)

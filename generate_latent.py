@@ -2,7 +2,6 @@ import wandb
 from Data_Set  import  my_collate, Tensor, Val_Dataset, OT_Dataset
 from networks.flowmatching.flow_final import SRM
 from networks.flowmatching.encoder import SetTransformer
-from networks.model.ae import ae
 import torch
 from torch.utils.data import DataLoader
 import os
@@ -24,7 +23,7 @@ val_path = '10k_512.pt'
 noise_path = 'masked_noise_hungarian_10k_512.pt'
 learning_rate = 2e-4
 size = 1000
-BATCH_SIZE = 1
+BATCH_SIZE = 64
 hidden_size = 1024
 samples = 1000
 steps = 200
@@ -57,12 +56,12 @@ decoder = Decoder(
         num_inputs=size,
         dim_output=6,
         num_inds=32,
-        dim_hidden=6,
+        dim_hidden=256,
         num_heads=16,
         emb_size=64,
         ln=True)
 
-ckpt_path = "srm.ckpt"
+ckpt_path = "epoch=149-global_step=0.ckpt"
 sample_steps = list(range(sample_steps))
 srm = SRM(encoder,decoder, experiment_name, samples, sample_steps, format_path, size,dim_in, learning_rate, weight_mse=1.0)
 srm.load_state_dict(torch.load(ckpt_path, weights_only=False)["state_dict"])
@@ -72,89 +71,26 @@ srm.to(device)
 solver = ODESolver(srm.decoder)
 num_of_strokes = 512
 x_0 = torch.randn((1,512,6), device="cuda")
-#ae = ae.load_from_checkpoint("ae.ckpt")
-#ae.eval()
-#ae.to(device)
+
 train_loader = DataLoader(train_dataset, BATCH_SIZE, shuffle=False)
 #Strokes_mask = torch.ones((1,num_of_strokes,1), device="cuda")
 #mask_zeros = torch.zeros((1,512-num_of_strokes,1), device="cuda")
 #Strokes_mask = torch.cat((Strokes_mask, mask_zeros), dim=1)
 #x_0 = x_0 * Strokes_mask
 #time_grid = torch.linspace(0.0,1.0,1000,device="cuda") 
-def count_unique_values(tensor):
-    """
-    Counts the number of unique values in a tensor of shape [1, 512, 1].
-    Args:
-        tensor (torch.Tensor): Input tensor of shape [1, 512, 1]
-    Returns:
-        int: Number of unique values
-    """
-    # Flatten the tensor to 1D
-    flat_tensor = tensor.view(-1)
-    unique_values = torch.unique(flat_tensor)
-    return unique_values.numel()
-
-def print_tensors_to_file(tensor1, tensor2, filename="tensor_output.txt"):
-    """
-    Prints the contents of two tensors to a file.
-
-    Args:
-        tensor1 (torch.Tensor): The first tensor to print.
-        tensor2 (torch.Tensor): The second tensor to print.
-        filename (str): The file to write the tensor contents to.
-    """
-    with open(filename, "w") as f:
-        f.write("Tensor 1:\n")
-        f.write(str(tensor1))
-        f.write("\n\n")
-        f.write("Tensor 2:\n")
-        f.write(str(tensor2))
-        f.write("\n")
-
 
 for i, (Strokes,x_0) in enumerate(tqdm(train_loader)):
+    
     x_0 = torch.randn((1,512,6), device="cuda")
     time_grid = torch.tensor([0.0,0.96,0.97,0.98,0.99,1.0],device="cuda")
     mask = Strokes[1].float()
     mask = mask.unsqueeze(-1)
     Stroke = Strokes[0]
     Stroke = Stroke * mask
+    print(f"Stroke.shape: {Stroke.shape}")
     Stroke = Stroke.to(device)
-    # attention_latent_original = srm.encoder(Stroke)
-    # attention_latent = ae.encode(attention_latent_original)
-    # print(count_unique_values(attention_latent))
-    # attention_latent = ae.decode(attention_latent)
-    # attention_latent = attention_latent / 100000
-    # print_tensors_to_file(attention_latent_original, attention_latent)
     attention_latent = srm.encoder(Stroke)
-    for i in range(attention_latent.shape[1]//2):
-        temp = attention_latent[0][i]
-        attention_latent[0][i] = attention_latent[0][511-i]
-        attention_latent[0][511-i] = temp
-    Output = solver.sample(x_0,None,"dopri8",1e-5,1e-5,time_grid,False,False,attention_latent=attention_latent)
-    print(f"Output.shape: {Output.shape}")
-    foldername = f'~/Dissertation/Output'
-    if not os.path.exists(foldername):
-        os.makedirs(foldername)
-    draw(format_path, size, foldername+f'output{i}.svg', Output)
-    if i > 3000:
-        break
-#     for j in range(len(Output)):
-#         if j % 100 == 0:
-#         draw(format_path, size, f'output{i}_{j}.svg', Output[i])
-#     draw(format_path, size, f'output_Strokes.svg', Strokes[0].unsqueeze(0))
-
-# time_grid = torch.tensor([0.0,1.0],device="cuda")
-# Output = solver.sample(x_0,0.0005,"euler",1e-5,1e-5,time_grid,False,False) 
-# t = torch.tensor([1.0],device="cuda")
-#for i in range(len(Output)):
-    #mask = srm.encoder.compute_mask(Output[i],t)
-    #Output[i] = Output[i] * mask
-    #draw(format_path, size, f'output_{i}.svg', Output[i])
-
-# mask = srm.encoder.compute_mask(Output,t)
-# Output = Output * mask
-# draw(format_path, size, f'output.svg', Output)
+    torch.save(attention_latent, f'/scratch/ks02450/attention_latent_{i}.pt')
 
 
 

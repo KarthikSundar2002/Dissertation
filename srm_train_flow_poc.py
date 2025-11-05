@@ -12,18 +12,18 @@ from diffusers import DDIMScheduler, DDPMScheduler
 from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
-experiment_name = 'MLP Hungarian Preprocessed OT Set Latent 1024 Dim MLP 18k 600 No Mask'
+experiment_name = 'MLP Hungarian Preprocessed OT Set Latent 4096 Dim MLP 10k 512 No Mask'
 #experiment_name = 'one image no mask'
 format_path = 'format.svg'
-train_path = '18k_600.pt'
-val_path = '18k_600.pt'
-noise_path = 'masked_noise_hungarian_18k_600.pt'
+train_path = '10k_512.pt'
+val_path = '10k_512.pt'
+noise_path = 'masked_noise_hungarian_10k_512.pt'
 
 learning_rate = 2e-4
-size = 600
-BATCH_SIZE = 192
+size = 512
+BATCH_SIZE = 256
 hidden_size = 4096
-samples = 600
+samples = 512
 steps = 200
 sample_steps = 30
 beta_schedule = 'linear'
@@ -56,7 +56,7 @@ encoder = SetTransformer(
         num_inputs=size,
         dim_output=6,
         num_inds=32,
-        dim_hidden=256,
+        dim_hidden=16,
         num_heads=16,
         emb_size=64,
         ln=True)
@@ -75,7 +75,7 @@ srm = srm(encoder, experiment_name, samples, sample_steps, format_path, size,dim
 # weights = torch.load("seTlatent899.ckpt", weights_only=False)['state_dict']
 # weights = {k.replace("encoder.", ""): v for k, v in weights.items() if k.startswith("encoder.")}
 # encoder.load_state_dict(weights)
-#srm.load_state_dict(torch.load("7000.ckpt", weights_only=False)["state_dict"])
+#srm.load_state_dict(torch.load("epoch=149-global_step=0.ckpt", weights_only=False)["state_dict"])
 #srm = torch.compile(srm)
 
 trainer = L.Trainer(accelerator='gpu', devices=gpu_num, strategy='auto' ,logger=wandb_logger, max_epochs=-1,

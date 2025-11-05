@@ -3,6 +3,27 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 import random
 import numpy as np
+import pickle
+import os
+
+class LSG_Dataset(Dataset):
+    def __init__(self, path, noise_path):
+        data_1 = torch.load(path + '/attention_latent_0.pt')
+        data_2 = torch.load(path + '/attention_latent_1.pt')
+        data_3 = torch.load(path + '/attention_latent_2.pt')
+        data_4 = torch.load(path + '/attention_latent_3.pt')
+        data_5 = torch.load(path + '/attention_latent_4.pt')
+        self.data = torch.cat((data_1, data_2, data_3, data_4, data_5), dim=0)
+        self.noise = torch.load(noise_path)
+
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        noise = self.noise[idx]
+        return data, noise
+
 class Tensor(Dataset):
     def __init__(self, path):
         self.data = torch.load(path) 
@@ -14,12 +35,47 @@ class Tensor(Dataset):
         data = self.data[idx]
         return data
 
+class Tensor_LSG(Dataset):
+    def __init__(self, path):
+        self.data = torch.tensor([])
+        for file in os.listdir(path):
+            if file.endswith('.pt'):
+                data = torch.load(os.path.join(path, file))
+                data = data.to("cpu")
+                self.data = torch.cat((self.data, data), dim=0)
+        self.data = self.data.view(-1, 6)
+        
+    def __len__(self):
+        return len(self.data)
+
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        return data
+    
+
+class One_Image(Dataset):
+    def __init__(self, path, noise_path):
+        self.data = torch.load(path)
+        self.data = self.data[13:14]
+        self.noise = torch.load(noise_path)
+        self.noise = self.noise[13:14]
+
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        data = self.data[idx]
+        noise = self.noise[idx]
+        return data, noise
+        
 class OT_Dataset(Dataset):
     def __init__(self, path, noise_path):
         self.data = torch.load(path)
         #self.data = self.data[:1]
         self.noise = torch.load(noise_path)
         #self.noise = self.noise[:1]
+        self.data = self.data.view(-1, 6)
+        self.noise = self.noise.view(-1, 6)
 
     def __len__(self):
         return len(self.data)

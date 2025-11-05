@@ -26,15 +26,9 @@ gitdb==4.0.12
 GitPython==3.1.44
 huggingface-hub==0.30.2
 idna==3.10
-ipykernel==6.29.5
-ipython==8.37.0
-ipywidgets==8.1.7
 jedi==0.19.2
 Jinja2==3.1.6
 joblib==1.5.1
-jupyter_client==8.6.3
-jupyter_core==5.8.1
-jupyterlab_widgets==3.0.15
 kiwisolver==1.4.8
 lightning==2.5.1.post0
 lightning-utilities==0.14.3
@@ -98,7 +92,6 @@ threadpoolctl==3.6.0
 tomlkit==0.13.3
 torch==2.7.0
 torchcde==0.2.5
-torchcfm==1.0.7
 torchdiffeq==0.2.5
 torchdyn==1.0.6
 torchmetrics==1.7.1

@@ -1,7 +1,7 @@
 
 import wandb
 from Data_Set  import Tensor
-from networks.model.models import srm, lsg, L_MLP
+from networks.flowmatching.flow_final import SRM
 import torch
 from torch.utils.data import DataLoader
 import os
@@ -10,17 +10,18 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning import Trainer
 from diffusers import DDIMScheduler, DDPMScheduler
 from pytorch_lightning.callbacks import StochasticWeightAveraging, ModelCheckpoint, LearningRateMonitor
-
+from networks.model.models import lsg, L_MLP
+from networks.model.ae import ae
 device = "cuda" if torch.cuda.is_available() else "cpu"
 # device = "mps"
 experiment_name = 'LSG-Train-run'
 format_path = 'format.svg'
-train_path = '/scratch/ks02450/Latent/SRM Test.pt'
+train_path = '10k_512.pt'
 
 learning_rate = 1e-4
 size = 512
-BATCH_SIZE = 2048
-hidden_size = 2048
+BATCH_SIZE = 256
+hidden_size = 4096
 samples = 1000
 steps = 4000
 sample_steps = 25
@@ -33,7 +34,10 @@ trainer = Trainer(logger=wandb_logger)
 train_set = Tensor(train_path)
 train_loader = DataLoader(train_set, BATCH_SIZE, shuffle=True)
 torch.set_float32_matmul_precision("medium")
-srm = srm.load_from_checkpoint("~/SRE9149.ckpt")
+ckpt_path = "epoch=149-global_step=0.ckpt"
+ae_ckpt_path = "ae.ckpt"
+srm = SRM.load_from_checkpoint(ckpt_path)
+ae = ae.load_from_checkpoint(ae_ckpt_path)
 checkpoint_callback = ModelCheckpoint(
     dirpath="/scratch/ks02450/Models/{}/".format(experiment_name),
     filename="{epoch:02d}-{global_step}",
@@ -55,7 +59,7 @@ ddim_s = DDIMScheduler(beta_end=2e-2, beta_start=1e-4, num_train_timesteps = ste
 ddim_s.set_timesteps(sample_steps)
 sample_steps = list(range(25))
 lr_monitor = LearningRateMonitor(logging_interval='epoch')
-lsg = lsg(model, srm, experiment_name, sample_steps, scheduler, ddim_s, learning_rate)
+lsg = lsg(model, srm, ae, experiment_name, sample_steps, scheduler, ddim_s, learning_rate)
 
 if not os.path.exists("/scratch/ks02450/Results/{}".format(experiment_name)):
         os.makedirs("/scratch/ks02450/Results/{}".format(experiment_name))
